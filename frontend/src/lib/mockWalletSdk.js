@@ -1,6 +1,6 @@
+// src/lib/mockWalletSdk.js
 /**
  * Mock implementation of the Obsidion Wallet SDK for development and testing
- * This should be used only when you want to test the UI without connecting to a real wallet
  */
 
 // Mock AztecAddress class
@@ -29,14 +29,18 @@ class Account {
     // Simulate signing delay
     await new Promise(resolve => setTimeout(resolve, 1200));
     
-    // Simulate user rejecting signature with 10% probability
-    if (Math.random() < 0.1) {
-      throw new Error('User rejected signature request');
-    }
-    
     // Generate a mock signature
     return '0x' + Array.from({length: 130}, () => 
       Math.floor(Math.random() * 16).toString(16)).join('');
+  }
+}
+
+// Mock Connector
+class ObsidionConnector {
+  constructor(options = {}) {
+    this.id = 'obsidion';
+    this.name = 'Obsidion';
+    this.icon = options.appIconUrl || '/wallets/obsidion.svg';
   }
 }
 
@@ -45,6 +49,14 @@ export class AztecWalletSdk {
   constructor(options = {}) {
     this.options = options;
     this.connected = false;
+    
+    // Create connectors from options
+    this.connectors = (options.connectors || []).map(connector => {
+      if (connector.id === 'obsidion') {
+        return new ObsidionConnector(connector);
+      }
+      return connector;
+    });
   }
 
   /**
@@ -60,38 +72,17 @@ export class AztecWalletSdk {
     // Simulate connection delay
     await new Promise(resolve => setTimeout(resolve, 800));
     
-    // Simulate successful connection with 90% probability
-    const success = Math.random() < 0.9;
-    
-    if (success) {
-      this.connected = true;
-      return new Account();
-    } else {
-      throw new Error('User rejected connection request');
-    }
+    this.connected = true;
+    return new Account();
   }
 }
 
-// Mock obsidion connector
+// Helper factory for obsidion connector
 export const obsidion = (options = {}) => {
   return {
     id: 'obsidion',
-    name: 'Obsidion',
-    icon: '/wallets/obsidion.svg',
-    ...options
+    appName: options.appName || 'Aztlan Quest',
+    walletUrl: options.walletUrl || 'https://app.obsidion.xyz',
+    appIconUrl: options.appIconUrl || '/logo.svg',
   };
 };
-
-// For backward compatibility
-export class AzguardWalletClient {
-  constructor(options = {}) {
-    this.sdk = new AztecWalletSdk(options);
-  }
-  
-  async connect() {
-    const account = await this.sdk.connect('obsidion');
-    return {
-      getAddress: () => account.getAddress().toString()
-    };
-  }
-}

@@ -1,3 +1,4 @@
+// src/utils/auth.js
 /**
  * Generates a nonce that can be used for authentication
  * @returns {string} The generated nonce
@@ -30,83 +31,40 @@ By signing this message, you confirm that you are the owner of this wallet.`;
 };
 
 /**
- * Signs a message using the Obsidion Wallet account
- * @param {object} wallet - The connected wallet object with account
- * @param {string} message - The message to sign
- * @returns {Promise<string>} The signature
- */
-export const signMessage = async (wallet, message) => {
-  try {
-    if (!wallet || !wallet.account) {
-      throw new Error('Wallet not connected');
-    }
-    
-    // Sign message using the wallet account
-    const signature = await wallet.account.signMessage(message);
-    return signature;
-  } catch (error) {
-    console.error('Sign message error:', error);
-    throw error;
-  }
-};
-
-/**
- * Verifies a wallet address with the server
- * This is a placeholder function. In a real implementation,
- * this would send the signature, address, and message to your backend
- * 
- * @param {string} address - The wallet address
- * @param {string} signature - The signature of the message
- * @param {string} message - The original message that was signed
- * @returns {Promise<object>} The verification result
- */
-export const verifyWallet = async (address, signature, message) => {
-  // In a real implementation, this would send the signature to your backend
-  // For now, we'll simulate a successful verification
-  console.log('Verifying wallet:', { address, signature, message });
-  
-  // Simulate API call to verify signature
-  // In production, this should be a real API call to your backend
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        address,
-        timestamp: new Date().toISOString()
-      });
-    }, 500);
-  });
-};
-
-/**
  * Complete authentication flow
- * @param {object} wallet - The wallet object containing address and account
+ * @param {object} params - The wallet object containing address and account
  * @returns {Promise<object>} Authentication result with signature
  */
-export const authenticate = async (wallet) => {
+export const authenticate = async (params) => {
   try {
-    if (!wallet.address) {
-      throw new Error('Wallet not connected');
+    const { address, account } = params;
+    
+    if (!address || !account) {
+      throw new Error('Wallet not connected properly');
     }
     
     // Generate nonce
     const nonce = generateNonce();
     
     // Create message to sign
-    const message = createSignMessage(wallet.address, nonce);
+    const message = createSignMessage(address, nonce);
     
     // Request signature
-    const signature = await signMessage(wallet, message);
+    const signature = await account.signMessage(message);
     
-    // Verify with backend (mocked for now)
-    const verification = await verifyWallet(wallet.address, signature, message);
+    // In a real application, you would verify this signature with your backend
+    // For now, we'll just pretend it was successful
+    const mockVerification = {
+      success: true,
+      timestamp: new Date().toISOString()
+    };
     
-    if (verification.success) {
+    if (mockVerification.success) {
       return {
         success: true,
         signature,
         message,
-        timestamp: verification.timestamp
+        timestamp: mockVerification.timestamp
       };
     } else {
       throw new Error('Verification failed');

@@ -1,6 +1,6 @@
+// src/context/WalletContext.js
 import React, { createContext, useContext, useState, useEffect } from 'react';
-// Import SDK dari Obsidion
-import { AztecWalletSdk, obsidion } from '@aztec/aztec.js/wallet';
+import { AztecWalletSdk, obsidion } from '../lib/mockWalletSdk';
 import { authenticate } from '../utils/auth';
 
 // Initialize wallet clients
@@ -44,8 +44,6 @@ export const WalletProvider = ({ children }) => {
       
       if (address && provider) {
         try {
-          // For now, we're not trying to reconnect to the actual wallet
-          // as it would require additional SDK logic and persisting the account
           setWallet(prev => ({
             ...prev,
             isConnected: true,
@@ -54,7 +52,6 @@ export const WalletProvider = ({ children }) => {
             isLoading: false,
             signature,
             authMessage,
-            // Mock data or stored data
             points: parseInt(localStorage.getItem('wallet_points') || '0'),
             level: parseInt(localStorage.getItem('wallet_level') || '1')
           }));
@@ -193,7 +190,6 @@ export const WalletProvider = ({ children }) => {
   // Check if user is registered (simulated for now)
   const checkRegistration = async (address) => {
     // This would normally call a contract or API
-    // For now, return random result or use localStorage
     const isRegistered = localStorage.getItem(`user_registered_${address}`);
     
     if (isRegistered !== null) {

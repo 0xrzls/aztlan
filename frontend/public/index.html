@@ -3,6 +3,23 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <!-- Script polyfill untuk process/browser -->
+    <script>
+      // Polyfill for process/browser
+      window.process = {
+        browser: true,
+        env: {
+          NODE_ENV: "%NODE_ENV%" // Akan diganti dengan "development" atau "production"
+        },
+        nextTick: function(cb) {
+          setTimeout(cb, 0);
+        },
+        version: '',
+        versions: {},
+        platform: 'browser'
+      };
+    </script>
+    <!-- End of polyfill script -->
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
     <meta
