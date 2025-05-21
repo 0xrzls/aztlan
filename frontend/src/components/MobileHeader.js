@@ -1,84 +1,174 @@
-import React, { useState } from 'react';
-import { FaWallet } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { FaChevronDown, FaWallet, FaUser } from 'react-icons/fa';
+import { LuSunMoon } from 'react-icons/lu';
+import { IoSunnyOutline } from 'react-icons/io5';
 import { useWallet } from '../context/WalletContext';
+import { useUser } from '../context/UserContext';
+import WalletConnectModal from './WalletConnectModal';
+import CreateProfileModal from './CreateProfileModal';
 
-function MobileHeader() {
-  const { wallet, connectWallet, disconnectWallet } = useWallet();
-  const [connecting, setConnecting] = useState(false);
+const networks = ['Testnet', 'Sandbox', 'Devnet'];
+
+const MobileHeader = () => {
+  // Use useState instead of useTheme for demo if not available
+  const [theme, setTheme] = useState('dark');
+  const isDark = theme === 'dark';
   
-  const handleConnectWallet = async () => {
-    if (wallet.isConnected) {
-      disconnectWallet();
-      return;
-    }
+  const [network, setNetwork] = useState('Testnet');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  
+  const { wallet, disconnectWallet, checkRegistration } = useWallet();
+  const { user } = useUser();
+
+  // Check if user is registered when wallet connects
+  useEffect(() => {
+    const verifyRegistration = async () => {
+      if (wallet.isConnected && wallet.address) {
+        try {
+          const isRegistered = await checkRegistration(wallet.address);
+          
+          // If not registered, show profile creation modal
+          if (!isRegistered && !profileModalOpen) {
+            setProfileModalOpen(true);
+          }
+        } catch (err) {
+          console.error('Registration check failed:', err);
+        }
+      }
+    };
     
-    setConnecting(true);
-    try {
-      await connectWallet();
-    } finally {
-      setConnecting(false);
+    if (wallet.isConnected) {
+      verifyRegistration();
     }
-  };
-  
-  // Truncate address for display
-  const displayAddress = wallet.isConnected 
-    ? `${wallet.address.slice(0, 4)}...${wallet.address.slice(-4)}`
-    : '';
-  
-  return (
-    <div className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-lg border-b border-white/10 z-40 flex items-center px-4">
-      <div className="flex-1">
-        <h1 className="text-lg font-bold">Aztlan</h1>
-      </div>
-      <div className="flex items-center gap-3">
-        {/* Points Display */}
-        <div className="flex items-center bg-white/5 border border-white/10 rounded-full px-3 py-1">
-          <div className="w-4 h-4 mr-2">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" 
-                fill="#8B5CF6" stroke="#8B5CF6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <span className="text-sm font-medium">{wallet.points}</span>
-          <button className="ml-1">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" 
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
-              className="text-white/50">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
-        </div>
+  }, [wallet.isConnected, wallet.address, checkRegistration, profileModalOpen]);
 
-        {/* Connect Wallet Button */}
-        <button 
-          onClick={handleConnectWallet}
-          disabled={connecting}
-          className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-            wallet.isConnected 
-              ? 'bg-white/10 hover:bg-white/20' 
-              : 'bg-purple-600 hover:bg-purple-700'
-          }`}
-        >
-          <FaWallet size={14} />
-          {connecting ? (
-            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          ) : wallet.isConnected ? displayAddress : 'Connect'}
-        </button>
-        
-        {/* Notification Button */}
-        <button className="p-2 rounded-full bg-white/10">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
-        </button>
-      </div>
-    </div>
+  const handleDisconnect = () => {
+    disconnectWallet();
+    setShowProfileDropdown(false);
+  };
+
+  const handleProfileCreated = () => {
+    // Refresh user data or perform actions after profile creation
+    console.log('Profile created successfully');
+  };
+
+  // Toggle theme function (simplified)
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
+  return (
+    <>
+      <header className="fixed top-0 left-0 w-full z-50 flex items-center justify-between px-4 py-3 border-b border-white/10 bg-black/20 backdrop-blur-lg md:hidden">
+        <Link to="/" className="relative w-8 h-8">
+          <img
+            src={isDark ? '/mobilelogo/mobiledark.svg' : '/mobilelogo/mobilelight.svg'}
+            alt="Logo"
+            className="w-full h-full object-contain"
+          />
+        </Link>
+
+        <div className="flex items-center gap-3 relative">
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-md border border-white/20 text-white"
+          >
+            {isDark ? <IoSunnyOutline size={18} /> : <LuSunMoon size={18} />}
+          </button>
+
+          <div className="relative">
+            <button
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-white/20 text-white text-sm"
+            >
+              <img src="/logos/lineaswap.png" alt="Network" width={16} height={16} className="w-4 h-4 object-contain" />
+              {network}
+              <FaChevronDown size={10} />
+            </button>
+            
+            {showDropdown && (
+              <div className="absolute right-0 mt-1 bg-black border border-white/10 rounded-md text-sm z-50">
+                {networks.map((net) => (
+                  <div
+                    key={net}
+                    onClick={() => {
+                      setNetwork(net);
+                      setShowDropdown(false);
+                    }}
+                    className="px-3 py-2 text-white hover:bg-white/10 cursor-pointer"
+                  >
+                    {net}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {wallet.isConnected ? (
+            <div className="relative">
+              <button
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                className="flex items-center gap-2 p-2 rounded-md border border-white/20 text-white"
+              >
+                {user.isRegistered ? (
+                  <img src={user.avatar || "/uid/01UID.png"} alt="Profile" className="w-5 h-5 rounded-full" />
+                ) : (
+                  <FaUser size={16} />
+                )}
+                <span className="text-xs">
+                  {wallet.address?.slice(0, 4)}...{wallet.address?.slice(-4)}
+                </span>
+              </button>
+              
+              {showProfileDropdown && (
+                <div className="absolute right-0 mt-1 bg-black border border-white/10 rounded-md text-sm z-50 min-w-[150px]">
+                  <Link 
+                    to="/profile"
+                    className="block px-3 py-2 text-white hover:bg-white/10 border-b border-white/10"
+                    onClick={() => setShowProfileDropdown(false)}
+                  >
+                    My Profile
+                  </Link>
+                  <div className="px-3 py-2 text-white/70">
+                    <div className="text-xs">Points:</div>
+                    <div className="font-semibold">{wallet.points}</div>
+                  </div>
+                  <button
+                    className="w-full text-left px-3 py-2 text-white hover:bg-white/10 border-t border-white/10"
+                    onClick={handleDisconnect}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => setWalletModalOpen(true)}
+              className="p-2 rounded-md border border-white/20 text-white"
+            >
+              <FaWallet size={18} />
+            </button>
+          )}
+        </div>
+      </header>
+
+      <WalletConnectModal
+        isOpen={walletModalOpen}
+        onClose={() => setWalletModalOpen(false)}
+      />
+
+      <CreateProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        onComplete={handleProfileCreated}
+      />
+    </>
   );
-}
+};
 
 export default MobileHeader;
