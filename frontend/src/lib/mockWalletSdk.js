@@ -1,55 +1,97 @@
-// Mock implementation of wallet SDK for development
-// Replace with actual SDK when ready
+/**
+ * Mock implementation of the Obsidion Wallet SDK for development and testing
+ * This should be used only when you want to test the UI without connecting to a real wallet
+ */
 
-export class AztecWalletSdk {
-  constructor(config) {
-    this.config = config;
-    console.log('Mock Aztec SDK initialized with config:', config);
+// Mock AztecAddress class
+class AztecAddress {
+  constructor(address) {
+    this._address = address || `0x${Array.from({length: 40}, () => 
+      Math.floor(Math.random() * 16).toString(16)).join('')}`;
   }
 
-  async connect(providerName) {
-    console.log(`Connecting to ${providerName}...`);
-    
-    // Simulate connection delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock account object
-    return {
-      getAddress: () => {
-        // Generate random address-like string
-        const randomHex = [...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
-        return `0x${randomHex}`;
-      }
-    };
+  toString() {
+    return this._address;
   }
 }
 
-export const obsidion = (config) => {
+// Mock Account class
+class Account {
+  constructor() {
+    this._address = new AztecAddress();
+  }
+
+  getAddress() {
+    return this._address;
+  }
+
+  async signMessage(message) {
+    // Simulate signing delay
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    
+    // Simulate user rejecting signature with 10% probability
+    if (Math.random() < 0.1) {
+      throw new Error('User rejected signature request');
+    }
+    
+    // Generate a mock signature
+    return '0x' + Array.from({length: 130}, () => 
+      Math.floor(Math.random() * 16).toString(16)).join('');
+  }
+}
+
+// Mock AztecWalletSdk
+export class AztecWalletSdk {
+  constructor(options = {}) {
+    this.options = options;
+    this.connected = false;
+  }
+
+  /**
+   * Connect to the wallet
+   * @param {string} provider - The wallet provider to connect to ('obsidion')
+   * @returns {Promise<Account>} The connected account
+   */
+  async connect(provider) {
+    if (provider !== 'obsidion') {
+      throw new Error(`Unsupported provider: ${provider}`);
+    }
+    
+    // Simulate connection delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Simulate successful connection with 90% probability
+    const success = Math.random() < 0.9;
+    
+    if (success) {
+      this.connected = true;
+      return new Account();
+    } else {
+      throw new Error('User rejected connection request');
+    }
+  }
+}
+
+// Mock obsidion connector
+export const obsidion = (options = {}) => {
   return {
-    name: 'obsidion',
-    config
+    id: 'obsidion',
+    name: 'Obsidion',
+    icon: '/wallets/obsidion.svg',
+    ...options
   };
 };
 
+// For backward compatibility
 export class AzguardWalletClient {
-  constructor(config) {
-    this.config = config;
-    console.log('Mock Azguard client initialized with config:', config);
+  constructor(options = {}) {
+    this.sdk = new AztecWalletSdk(options);
   }
-
+  
   async connect() {
-    console.log('Connecting to Azguard wallet...');
-    
-    // Simulate connection delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Generate random address
-    const randomHex = [...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
-    const address = `0x${randomHex}`;
-    
+    const account = await this.sdk.connect('obsidion');
     return {
-      getAddress: () => address,
-      address
+      getAddress: () => account.getAddress().toString()
     };
   }
 }

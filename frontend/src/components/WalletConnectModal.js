@@ -67,18 +67,12 @@ const WalletConnectModal = ({ isOpen, onClose }) => {
               )}
             </button>
 
-            <button
-              onClick={() => handleConnectWallet('azguard')}
-              disabled={connecting}
-              className={`flex items-center gap-3 p-3 rounded-lg text-white
-                ${connecting ? 'bg-white/5 cursor-wait' : 'bg-white/10 hover:bg-white/20 transition'}`}
-            >
-              <img src="/wallets/azguard.svg" alt="Azguard" className="w-6 h-6" />
-              Azguard
-              {connecting && wallet.provider === 'azguard' && (
-                <div className="ml-auto h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-              )}
-            </button>
+            {/* Disabled wallet options */}
+            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg text-white/50 cursor-not-allowed">
+              <img src="/wallets/azguard.svg" alt="Azguard" className="w-6 h-6 opacity-50" />
+              Azguard 
+              <FaLock className="ml-auto" size={14} />
+            </div>
 
             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg text-white/50 cursor-not-allowed">
               <img src="/wallets/metamask.svg" alt="Metamask" className="w-6 h-6" />

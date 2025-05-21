@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useWallet } from './WalletContext';
 
 const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
+  const { wallet } = useWallet();
   const [user, setUser] = useState({
     address: null,
     isRegistered: false,
@@ -13,10 +15,10 @@ export const UserProvider = ({ children }) => {
     nfts: []
   });
 
-  // Check for existing user data on mount
+  // Check for existing user data when wallet changes
   useEffect(() => {
     const loadUserData = () => {
-      const address = localStorage.getItem('wallet_address');
+      const address = wallet.address;
       
       if (address) {
         const userData = localStorage.getItem(`user_data_${address}`);
@@ -32,28 +34,54 @@ export const UserProvider = ({ children }) => {
           } catch (error) {
             console.error('Failed to parse user data:', error);
           }
+        } else {
+          // Reset user state if no data found for this address
+          setUser({
+            address,
+            isRegistered: false,
+            username: '',
+            avatar: '',
+            twitter: '',
+            discord: '',
+            nfts: []
+          });
         }
+      } else {
+        // Reset user state if no wallet connected
+        setUser({
+          address: null,
+          isRegistered: false,
+          username: '',
+          avatar: '',
+          twitter: '',
+          discord: '',
+          nfts: []
+        });
       }
     };
     
     loadUserData();
-  }, []);
+  }, [wallet.address, wallet.isConnected]);
 
   // Register or update user profile
   const updateUserProfile = async (profileData) => {
     const { username, avatar, twitter, discord } = profileData;
-    const address = localStorage.getItem('wallet_address');
     
-    if (!address) {
+    if (!wallet.address || !wallet.isConnected) {
       return { success: false, error: 'No connected wallet' };
     }
     
     try {
-      // In a real app, this would call a contract or API
+      // In a real app, this would verify the wallet signature and call a contract or API
+      // For now, we'll use the wallet.signature that was stored during authentication
+      if (!wallet.signature) {
+        return { success: false, error: 'Wallet not authenticated' };
+      }
+      
       // Simulate registration success
       const updatedUser = {
         ...user,
-        address,
+        address: wallet.address,
         isRegistered: true,
         username,
         avatar,
@@ -74,8 +102,8 @@ export const UserProvider = ({ children }) => {
       setUser(updatedUser);
       
       // Save to localStorage for persistence
-      localStorage.setItem(`user_registered_${address}`, 'true');
-      localStorage.setItem(`user_data_${address}`, JSON.stringify(updatedUser));
+      localStorage.setItem(`user_registered_${wallet.address}`, 'true');
+      localStorage.setItem(`user_data_${wallet.address}`, JSON.stringify(updatedUser));
       
       return { success: true };
     } catch (error) {
