@@ -1,16 +1,23 @@
-import React, { useState } from 'react';
+// src/components/WalletConnectModal.js
+import React, { useState, useEffect } from 'react';
 import { FaLock, FaTimes } from 'react-icons/fa';
 import { useWallet } from '../context/WalletContext';
+import { useAzguardDebug } from '../hooks/useAzguardDebug';
 
 const WalletConnectModal = ({ isOpen, onClose }) => {
-  const { connectWallet, wallet } = useWallet();
+  const { connectWallet } = useWallet();
   const [connecting, setConnecting] = useState(false);
+  const [connectingProvider, setConnectingProvider] = useState(null);
   const [error, setError] = useState(null);
+  
+  // Use debug hook
+  useAzguardDebug();
 
   if (!isOpen) return null;
 
   const handleConnectWallet = async (providerName) => {
     setConnecting(true);
+    setConnectingProvider(providerName);
     setError(null);
     
     try {
@@ -26,6 +33,7 @@ const WalletConnectModal = ({ isOpen, onClose }) => {
       setError(err.message || 'Failed to connect wallet');
     } finally {
       setConnecting(false);
+      setConnectingProvider(null);
     }
   };
 
@@ -54,6 +62,7 @@ const WalletConnectModal = ({ isOpen, onClose }) => {
         {/* Wallet Options */}
         <div className="p-4">
           <div className="grid grid-cols-2 gap-3 mb-4">
+            {/* Obsidion Wallet */}
             <button
               onClick={() => handleConnectWallet('obsidion')}
               disabled={connecting}
@@ -62,26 +71,34 @@ const WalletConnectModal = ({ isOpen, onClose }) => {
             >
               <img src="/wallets/obsidion.svg" alt="Obsidion" className="w-6 h-6" />
               Obsidion
-              {connecting && wallet.provider === 'obsidion' && (
+              {connecting && connectingProvider === 'obsidion' && (
                 <div className="ml-auto h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
               )}
             </button>
 
-            {/* Disabled wallet options */}
-            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg text-white/50 cursor-not-allowed">
-              <img src="/wallets/azguard.svg" alt="Azguard" className="w-6 h-6 opacity-50" />
-              Azguard 
-              <FaLock className="ml-auto" size={14} />
-            </div>
+            {/* Azguard Wallet */}
+            <button
+              onClick={() => handleConnectWallet('azguard')}
+              disabled={connecting}
+              className={`flex items-center gap-3 p-3 rounded-lg text-white
+                ${connecting ? 'bg-white/5 cursor-wait' : 'bg-white/10 hover:bg-white/20 transition'}`}
+            >
+              <img src="/wallets/azguard.svg" alt="Azguard" className="w-6 h-6" />
+              Azguard
+              {connecting && connectingProvider === 'azguard' && (
+                <div className="ml-auto h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+              )}
+            </button>
 
+            {/* Coming Soon wallets */}
             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg text-white/50 cursor-not-allowed">
-              <img src="/wallets/metamask.svg" alt="Metamask" className="w-6 h-6" />
+              <img src="/wallets/metamask.svg" alt="Metamask" className="w-6 h-6 opacity-50" />
               Metamask 
               <FaLock className="ml-auto" size={14} />
             </div>
 
             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg text-white/50 cursor-not-allowed">
-              <img src="/wallets/coinbase.svg" alt="Coinbase" className="w-6 h-6" />
+              <img src="/wallets/coinbase.svg" alt="Coinbase" className="w-6 h-6 opacity-50" />
               Coinbase 
               <FaLock className="ml-auto" size={14} />
             </div>
