@@ -1,0 +1,131 @@
+{
+  "name": "AztlanProfileRegistry",
+  "functions": [
+    {
+      "name": "constructor",
+      "functionType": "public",
+      "isInitializer": true,
+      "parameters": [],
+      "returnTypes": []
+    },
+    {
+      "name": "initialize_admin", 
+      "functionType": "public",
+      "isInitializer": false,
+      "parameters": [],
+      "returnTypes": []
+    },
+    {
+      "name": "create_profile",
+      "functionType": "public", 
+      "isInitializer": false,
+      "parameters": [
+        {
+          "name": "username_hash",
+          "type": {
+            "kind": "field"
+          }
+        },
+        {
+          "name": "token_uri_hash", 
+          "type": {
+            "kind": "field"
+          }
+        }
+      ],
+      "returnTypes": []
+    },
+    {
+      "name": "get_profile_id",
+      "functionType": "public",
+      "isInitializer": false,
+      "parameters": [
+        {
+          "name": "user",
+          "type": {
+            "kind": "struct",
+            "path": "dep::aztec::prelude::AztecAddress"
+          }
+        }
+      ],
+      "returnTypes": [
+        {
+          "kind": "field"
+        }
+      ]
+    },
+    {
+      "name": "has_profile",
+      "functionType": "public", 
+      "isInitializer": false,
+      "parameters": [
+        {
+          "name": "user",
+          "type": {
+            "kind": "struct", 
+            "path": "dep::aztec::prelude::AztecAddress"
+          }
+        }
+      ],
+      "returnTypes": [
+        {
+          "kind": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "get_token_uri",
+      "functionType": "public",
+      "isInitializer": false,
+      "parameters": [
+        {
+          "name": "user",
+          "type": {
+            "kind": "struct",
+            "path": "dep::aztec::prelude::AztecAddress"
+          }
+        }
+      ],
+      "returnTypes": [
+        {
+          "kind": "field"
+        }
+      ]
+    },
+    {
+      "name": "is_username_available",
+      "functionType": "public",
+      "isInitializer": false,
+      "parameters": [
+        {
+          "name": "username_hash",
+          "type": {
+            "kind": "field"
+          }
+        }
+      ],
+      "returnTypes": [
+        {
+          "kind": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "get_total_profiles",
+      "functionType": "public",
+      "isInitializer": false,
+      "parameters": [],
+      "returnTypes": [
+        {
+          "kind": "field"
+        }
+      ]
+    }
+  ],
+  "outputs": {
+    "structs": {},
+    "globals": {}
+  },
+  "fileMap": {},
+  "contractAddress": "0x2dc4889b4091dc91d37f103128ab68b17f0b37533bbe66ba4f69f32781b23468"
+}

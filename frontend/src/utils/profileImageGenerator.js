@@ -1,11 +1,11 @@
-// src/utils/profileImageGenerator.js
+// src/utils/profileImageGenerator.js - AZTEC PROFILE NFT GENERATOR
 /**
- * Generate profile NFT image using Canvas API (Browser compatible)
+ * Generate profile NFT image using Canvas API
  */
 
 export const generateProfileImage = async ({ name, username, twitter, discord, avatar }) => {
   try {
-    console.log('Generating profile image for:', username);
+    console.log('Generating Aztec profile NFT for:', username);
     
     // Create canvas
     const canvas = document.createElement('canvas');
@@ -15,18 +15,18 @@ export const generateProfileImage = async ({ name, username, twitter, discord, a
     canvas.width = 1000;
     canvas.height = 1000;
     
-    // Background gradient
+    // Background gradient - Aztec theme
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
     gradient.addColorStop(0, '#0A0A0A');
     gradient.addColorStop(0.3, '#1a1a2e');
     gradient.addColorStop(0.7, '#16213e');
-    gradient.addColorStop(1, '#0f3460');
+    gradient.addColorStop(1, '#8b5cf6'); // Purple accent
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Add subtle pattern
+    // Add subtle pattern overlay
     ctx.globalAlpha = 0.05;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 20; i++) {
       ctx.beginPath();
       ctx.arc(
         Math.random() * canvas.width,
@@ -36,23 +36,23 @@ export const generateProfileImage = async ({ name, username, twitter, discord, a
         Math.PI * 2
       );
       ctx.strokeStyle = '#8b5cf6';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 2;
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
     
-    // Draw main card
-    const cardX = 80;
-    const cardY = 80;
-    const cardWidth = 840;
-    const cardHeight = 840;
+    // Draw main card background
+    const cardX = 60;
+    const cardY = 60;
+    const cardWidth = 880;
+    const cardHeight = 880;
     const borderRadius = 40;
     
-    // Card background with gradient
+    // Card background with glass effect
     ctx.beginPath();
     roundRect(ctx, cardX, cardY, cardWidth, cardHeight, borderRadius);
     const cardGradient = ctx.createLinearGradient(cardX, cardY, cardX + cardWidth, cardY + cardHeight);
-    cardGradient.addColorStop(0, 'rgba(139, 92, 246, 0.15)');
+    cardGradient.addColorStop(0, 'rgba(139, 92, 246, 0.2)');
     cardGradient.addColorStop(1, 'rgba(139, 92, 246, 0.05)');
     ctx.fillStyle = cardGradient;
     ctx.fill();
@@ -61,31 +61,31 @@ export const generateProfileImage = async ({ name, username, twitter, discord, a
     ctx.beginPath();
     roundRect(ctx, cardX, cardY, cardWidth, cardHeight, borderRadius);
     ctx.strokeStyle = 'rgba(139, 92, 246, 0.8)';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3;
     ctx.stroke();
     
-    // Aztlan Logo/Title at top
-    ctx.font = 'bold 50px Arial, sans-serif';
+    // Aztlan Quest Logo at top
+    ctx.font = 'bold 48px Arial, sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
-    ctx.fillText('AZTLAN QUEST', canvas.width / 2, 180);
+    ctx.fillText('AZTLAN QUEST', canvas.width / 2, 160);
     
     // Subtitle
-    ctx.font = '24px Arial, sans-serif';
+    ctx.font = '20px Arial, sans-serif';
     ctx.fillStyle = 'rgba(139, 92, 246, 1)';
-    ctx.fillText('Gateway to Aztec Network', canvas.width / 2, 220);
+    ctx.fillText('Gateway to Aztec Network', canvas.width / 2, 190);
     
     // Avatar section
-    const avatarSize = 200;
+    const avatarSize = 180;
     const avatarX = canvas.width / 2;
-    const avatarY = 380;
+    const avatarY = 320;
     
-    // Avatar background circle with glow
+    // Avatar background with glow effect
     ctx.save();
-    ctx.shadowColor = 'rgba(139, 92, 246, 0.5)';
-    ctx.shadowBlur = 20;
+    ctx.shadowColor = 'rgba(139, 92, 246, 0.6)';
+    ctx.shadowBlur = 30;
     ctx.beginPath();
-    ctx.arc(avatarX, avatarY, avatarSize / 2 + 8, 0, Math.PI * 2);
+    ctx.arc(avatarX, avatarY, avatarSize / 2 + 10, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(139, 92, 246, 0.3)';
     ctx.fill();
     ctx.restore();
@@ -110,53 +110,62 @@ export const generateProfileImage = async ({ name, username, twitter, discord, a
       drawAvatarFallback(ctx, avatarX, avatarY, avatarSize, username);
     }
     
-    // Name/Username section
-    ctx.font = 'bold 48px Arial, sans-serif';
+    // Name section
+    ctx.font = 'bold 44px Arial, sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
-    ctx.fillText(name || username, canvas.width / 2, 550);
+    const displayName = name || username;
+    ctx.fillText(displayName, canvas.width / 2, 480);
     
     // Username with @ symbol
-    ctx.font = '36px Arial, sans-serif';
+    ctx.font = '32px Arial, sans-serif';
     ctx.fillStyle = 'rgba(139, 92, 246, 1)';
-    ctx.fillText(`@${username}`, canvas.width / 2, 600);
+    ctx.fillText(`@${username}`, canvas.width / 2, 520);
     
     // Social section background
-    const socialY = 650;
-    const socialHeight = 160;
+    const socialY = 580;
+    const socialHeight = 140;
     
     ctx.beginPath();
-    roundRect(ctx, cardX + 60, socialY, cardWidth - 120, socialHeight, 20);
+    roundRect(ctx, cardX + 80, socialY, cardWidth - 160, socialHeight, 20);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.fill();
     
     // Social handles
-    ctx.font = '28px Arial, sans-serif';
+    ctx.font = '24px Arial, sans-serif';
     ctx.textAlign = 'left';
     let socialOffset = 0;
     
     // Twitter
     if (twitter && twitter.trim()) {
       ctx.fillStyle = '#1DA1F2';
-      ctx.fillText('🐦', cardX + 100, socialY + 50);
+      ctx.fillText('🐦', cardX + 120, socialY + 50);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(`@${twitter.replace('@', '')}`, cardX + 150, socialY + 50);
-      socialOffset += 60;
+      ctx.fillText(`@${twitter.replace('@', '')}`, cardX + 160, socialY + 50);
+      socialOffset += 50;
     }
     
     // Discord
     if (discord && discord.trim()) {
       ctx.fillStyle = '#5865F2';
-      ctx.fillText('💬', cardX + 100, socialY + 50 + socialOffset);
+      ctx.fillText('💬', cardX + 120, socialY + 50 + socialOffset);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(discord, cardX + 150, socialY + 50 + socialOffset);
+      ctx.fillText(discord, cardX + 160, socialY + 50 + socialOffset);
+    }
+    
+    // If no social handles, show placeholder
+    if (!twitter && !discord) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.textAlign = 'center';
+      ctx.font = '20px Arial, sans-serif';
+      ctx.fillText('Connect social accounts to verify identity', canvas.width / 2, socialY + 70);
     }
     
     // Footer section
-    ctx.font = '22px Arial, sans-serif';
+    ctx.font = '20px Arial, sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.textAlign = 'center';
-    ctx.fillText('Aztec Network • Privacy by Design', canvas.width / 2, 880);
+    ctx.fillText('Aztec Network • Privacy by Design', canvas.width / 2, 780);
     
     // Mint date
     const mintDate = new Date().toLocaleDateString('en-US', {
@@ -164,9 +173,14 @@ export const generateProfileImage = async ({ name, username, twitter, discord, a
       month: 'long',
       day: 'numeric'
     });
-    ctx.font = '18px Arial, sans-serif';
+    ctx.font = '16px Arial, sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.fillText(`Minted: ${mintDate}`, canvas.width / 2, 910);
+    ctx.fillText(`Minted: ${mintDate}`, canvas.width / 2, 810);
+    
+    // Aztec Network badge
+    ctx.font = 'bold 14px Arial, sans-serif';
+    ctx.fillStyle = 'rgba(139, 92, 246, 0.8)';
+    ctx.fillText('AZTEC TESTNET', canvas.width / 2, 840);
     
     // Convert to blob and data URL
     return new Promise((resolve) => {
@@ -234,89 +248,26 @@ function drawAvatarFallback(ctx, x, y, size, username) {
   ctx.textBaseline = 'alphabetic';
 }
 
-// Upload to IPFS (simplified version)
+// Upload to IPFS (simplified version for now)
 export const uploadToIPFS = async (blob) => {
   try {
-    // Option 1: Try NFT.Storage if API key available
-    if (process.env.REACT_APP_NFT_STORAGE_API_KEY) {
-      console.log('Uploading to NFT.Storage...');
-      
-      const formData = new FormData();
-      formData.append('file', blob, 'profile.png');
-      
-      const response = await fetch('https://api.nft.storage/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.REACT_APP_NFT_STORAGE_API_KEY}`
-        },
-        body: formData
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        return {
-          ipfsHash: data.value.cid,
-          ipfsUrl: `ipfs://${data.value.cid}`
-        };
-      } else {
-        throw new Error('NFT.Storage upload failed');
-      }
-    }
-    
-    // Option 2: Try Pinata if JWT available
-    if (process.env.REACT_APP_PINATA_JWT) {
-      console.log('Uploading to Pinata...');
-      
-      const formData = new FormData();
-      formData.append('file', blob, 'profile.png');
-      
-      const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.REACT_APP_PINATA_JWT}`
-        },
-        body: formData
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        return {
-          ipfsHash: data.IpfsHash,
-          ipfsUrl: `ipfs://${data.IpfsHash}`
-        };
-      } else {
-        throw new Error('Pinata upload failed');
-      }
-    }
-    
-    // Option 3: Fallback to base64 data URL
-    console.warn('No IPFS service configured, using base64 data URL fallback');
+    // For now, just return data URL
+    // In production, integrate with NFT.Storage or Pinata
+    console.log('Converting to data URL (IPFS integration pending)');
     
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64data = reader.result;
         resolve({
-          ipfsHash: 'base64_' + Date.now(),
-          ipfsUrl: base64data
+          ipfsHash: 'data_' + Date.now(),
+          ipfsUrl: reader.result
         });
       };
       reader.readAsDataURL(blob);
     });
     
   } catch (error) {
-    console.error('IPFS upload error:', error);
-    
-    // Final fallback - return data URL
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        resolve({
-          ipfsHash: 'fallback_' + Date.now(),
-          ipfsUrl: reader.result
-        });
-      };
-      reader.readAsDataURL(blob);
-    });
+    console.error('Upload error:', error);
+    throw error;
   }
 };
