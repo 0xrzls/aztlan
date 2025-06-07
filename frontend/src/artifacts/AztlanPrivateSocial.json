@@ -1,0 +1,127 @@
+{
+  "name": "AztlanPrivateSocial",
+  "functions": [
+    {
+      "name": "constructor",
+      "functionType": "public",
+      "isInitializer": true,
+      "parameters": [],
+      "returnTypes": []
+    },
+    {
+      "name": "initialize_admin",
+      "functionType": "public", 
+      "isInitializer": false,
+      "parameters": [],
+      "returnTypes": []
+    },
+    {
+      "name": "prepare_twitter_verification",
+      "functionType": "private",
+      "isInitializer": false,
+      "parameters": [
+        {
+          "name": "profile_id",
+          "type": {
+            "kind": "field"
+          }
+        },
+        {
+          "name": "handle_hash",
+          "type": {
+            "kind": "field"
+          }
+        }
+      ],
+      "returnTypes": [
+        {
+          "kind": "field"
+        }
+      ]
+    },
+    {
+      "name": "complete_twitter_verification",
+      "functionType": "public",
+      "isInitializer": false,
+      "parameters": [
+        {
+          "name": "profile_id",
+          "type": {
+            "kind": "field"
+          }
+        },
+        {
+          "name": "verification_hash",
+          "type": {
+            "kind": "field"
+          }
+        }
+      ],
+      "returnTypes": []
+    },
+    {
+      "name": "is_twitter_verified",
+      "functionType": "public",
+      "isInitializer": false,
+      "parameters": [
+        {
+          "name": "profile_id",
+          "type": {
+            "kind": "field"
+          }
+        }
+      ],
+      "returnTypes": [
+        {
+          "kind": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "get_profile_verifications",
+      "functionType": "public",
+      "isInitializer": false,
+      "parameters": [
+        {
+          "name": "profile_id",
+          "type": {
+            "kind": "field"
+          }
+        }
+      ],
+      "returnTypes": [
+        {
+          "kind": "array",
+          "length": 6,
+          "type": {
+            "kind": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_profile_verification_count",
+      "functionType": "public",
+      "isInitializer": false,
+      "parameters": [
+        {
+          "name": "profile_id",
+          "type": {
+            "kind": "field"
+          }
+        }
+      ],
+      "returnTypes": [
+        {
+          "kind": "field"
+        }
+      ]
+    }
+  ],
+  "outputs": {
+    "structs": {},
+    "globals": {}
+  },
+  "fileMap": {},
+  "contractAddress": "0x208719c6c69469c79fd098b79534f0218b1628e3bbbaffbedad7f52d57b2d154"
+}
