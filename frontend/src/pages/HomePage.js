@@ -1,3 +1,4 @@
+// src/pages/HomePage.js - COMPLETE UPDATED VERSION
 import React, { useState, useEffect } from 'react';
 import { FaUser } from 'react-icons/fa';
 import { GiTrophyCup } from 'react-icons/gi';
@@ -11,7 +12,7 @@ import DesktopHeader from '../components/DesktopHeader';
 import BottomNav from '../components/BottomNav';
 import CreateProfileModal from '../components/CreateProfileModal';
 import { useUser } from '../context/UserContext';
-import { useWallet } from '../context/WalletContext';
+import useWalletStore from '../store/walletStore'; // ✅ NEW: Zustand store
 import { registerUser } from '../lib/aztec';
 
 const categories = ['All', 'Latest', 'Collections', 'Campaign'];
@@ -44,17 +45,20 @@ const newAdded = [
 
 function HomePage() {
   const { user, setUser } = useUser();
-  const { wallet } = useWallet();
+  
+  // ✅ NEW: Zustand store
+  const { isConnected, points } = useWalletStore();
+  
   const [showMintPopup, setShowMintPopup] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
 
   useEffect(() => {
     // Auto show profile creation modal for non-registered users
-    if (user.isRegistered === false && wallet.isConnected) {
+    if (user.isRegistered === false && isConnected) {
       setShowMintPopup(true);
     }
-  }, [user.isRegistered, wallet.isConnected]);
+  }, [user.isRegistered, isConnected]);
 
   const handleSubmit = async ({ username, avatar }) => {
     setLoading(true);
@@ -95,7 +99,7 @@ function HomePage() {
               </div>
               <div className="-mb-4 flex justify-between text-sm text-white/80">
                 <span className="flex items-center gap-2">
-                  <FaUser size={16} />{wallet.isConnected ? wallet.points : 0}
+                  <FaUser size={16} />{isConnected ? points : 0}
                 </span>
                 <span className="flex items-center gap-2"><GiTrophyCup size={16} />600</span>
               </div>
@@ -144,7 +148,7 @@ function HomePage() {
                     <div className="mb-4 h-[2px] w-full rounded-full bg-white/10" />
                     <div className="flex justify-between text-xs text-white/70">
                       <span className="flex items-center gap-1">
-                        <FaUser size={12} />{wallet.isConnected ? wallet.points : 0}
+                        <FaUser size={12} />{isConnected ? points : 0}
                       </span>
                       <span className="flex items-center gap-1"><GiTrophyCup size={12} />600</span>
                     </div>
@@ -255,7 +259,7 @@ function HomePage() {
         </section>
 
         {/* CALL TO ACTION - Only shown for non-connected wallets */}
-        {!wallet.isConnected && (
+        {!isConnected && (
           <section className="mt-8 p-6 rounded-[10px] bg-gradient-to-br from-purple-900/40 to-purple-700/20 backdrop-blur-lg border border-purple-500/20">
             <div className="flex flex-col items-center text-center">
               <h2 className="text-xl font-bold mb-2">Connect Your Wallet</h2>

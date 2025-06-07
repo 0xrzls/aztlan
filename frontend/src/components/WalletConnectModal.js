@@ -1,14 +1,16 @@
-// src/components/WalletConnectModal.js
-import React, { useState, useEffect } from 'react';
+// src/components/WalletConnectModal.js - UPDATED VERSION
+import React, { useState } from 'react';
 import { FaLock, FaTimes } from 'react-icons/fa';
-import { useWallet } from '../context/WalletContext';
+import useWalletStore from '../store/walletStore'; // NEW ZUSTAND STORE
 import { useAzguardDebug } from '../hooks/useAzguardDebug';
 
 const WalletConnectModal = ({ isOpen, onClose }) => {
-  const { connectWallet } = useWallet();
+  // ❌ OLD: const { connectWallet } = useWallet();
+  // ✅ NEW: Zustand store
+  const { connectWallet, isLoading, error } = useWalletStore();
+  
   const [connecting, setConnecting] = useState(false);
   const [connectingProvider, setConnectingProvider] = useState(null);
-  const [error, setError] = useState(null);
   
   // Use debug hook
   useAzguardDebug();
@@ -18,19 +20,16 @@ const WalletConnectModal = ({ isOpen, onClose }) => {
   const handleConnectWallet = async (providerName) => {
     setConnecting(true);
     setConnectingProvider(providerName);
-    setError(null);
     
     try {
       const result = await connectWallet(providerName);
       
       if (result.success) {
         onClose();
-      } else {
-        setError(result.error || 'Connection failed');
       }
+      // Error handling sudah di store
     } catch (err) {
       console.error('Connection error:', err);
-      setError(err.message || 'Failed to connect wallet');
     } finally {
       setConnecting(false);
       setConnectingProvider(null);
@@ -46,13 +45,13 @@ const WalletConnectModal = ({ isOpen, onClose }) => {
           <button 
             onClick={onClose} 
             className="text-white/70 hover:text-white p-1"
-            disabled={connecting}
+            disabled={connecting || isLoading}
           >
             <FaTimes size={18} />
           </button>
         </div>
 
-        {/* Error Message (if any) */}
+        {/* Error Message (from Zustand store) */}
         {error && (
           <div className="bg-red-600/20 border border-red-600/40 rounded-md mx-4 mt-3 p-3">
             <p className="text-red-500 text-sm">{error}</p>
@@ -65,13 +64,13 @@ const WalletConnectModal = ({ isOpen, onClose }) => {
             {/* Obsidion Wallet */}
             <button
               onClick={() => handleConnectWallet('obsidion')}
-              disabled={connecting}
+              disabled={connecting || isLoading}
               className={`flex items-center gap-3 p-3 rounded-lg text-white
-                ${connecting ? 'bg-white/5 cursor-wait' : 'bg-white/10 hover:bg-white/20 transition'}`}
+                ${connecting || isLoading ? 'bg-white/5 cursor-wait' : 'bg-white/10 hover:bg-white/20 transition'}`}
             >
               <img src="/wallets/obsidion.svg" alt="Obsidion" className="w-6 h-6" />
               Obsidion
-              {connecting && connectingProvider === 'obsidion' && (
+              {(connecting || isLoading) && connectingProvider === 'obsidion' && (
                 <div className="ml-auto h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
               )}
             </button>
@@ -79,13 +78,13 @@ const WalletConnectModal = ({ isOpen, onClose }) => {
             {/* Azguard Wallet */}
             <button
               onClick={() => handleConnectWallet('azguard')}
-              disabled={connecting}
+              disabled={connecting || isLoading}
               className={`flex items-center gap-3 p-3 rounded-lg text-white
-                ${connecting ? 'bg-white/5 cursor-wait' : 'bg-white/10 hover:bg-white/20 transition'}`}
+                ${connecting || isLoading ? 'bg-white/5 cursor-wait' : 'bg-white/10 hover:bg-white/20 transition'}`}
             >
               <img src="/wallets/azguard.svg" alt="Azguard" className="w-6 h-6" />
               Azguard
-              {connecting && connectingProvider === 'azguard' && (
+              {(connecting || isLoading) && connectingProvider === 'azguard' && (
                 <div className="ml-auto h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
               )}
             </button>

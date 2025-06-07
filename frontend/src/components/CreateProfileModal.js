@@ -1,7 +1,7 @@
-// src/components/CreateProfileModal.js
+// src/components/CreateProfileModal.js - COMPLETE UPDATED VERSION
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaTwitter, FaDiscord, FaRandom } from 'react-icons/fa';
-import { useWallet } from '../context/WalletContext';
+import useWalletStore from '../store/walletStore'; // ✅ NEW: Zustand store
 import { mintProfileNFT } from '../lib/mintProfileFlow';
 
 const AVATAR_FILES = [
@@ -11,7 +11,9 @@ const AVATAR_FILES = [
 ];
 
 const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
-  const { wallet } = useWallet();
+  // ✅ NEW: Zustand store
+  const wallet = useWalletStore();
+  
   const [activeTab, setActiveTab] = useState('profile');
   const [formData, setFormData] = useState({
     username: '',
@@ -38,7 +40,6 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
     setIsValid(formData.username.trim().length >= 4);
   }, [formData]);
 
-  // === FIXED: return a template-string, not a regex ===
   const pickRandomAvatar = () => {
     const randomIndex = Math.floor(Math.random() * AVATAR_FILES.length);
     return `/uid/${AVATAR_FILES[randomIndex]}`;

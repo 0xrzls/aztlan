@@ -1,9 +1,10 @@
+// src/components/DesktopHeader.js - UPDATED VERSION
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaChevronDown, FaWallet, FaUser } from 'react-icons/fa';
 import { LuSunMoon } from 'react-icons/lu';
 import { IoSunnyOutline } from 'react-icons/io5';
-import { useWallet } from '../context/WalletContext';
+import useWalletStore from '../store/walletStore'; // NEW ZUSTAND STORE
 import { useUser } from '../context/UserContext';
 import WalletConnectModal from './WalletConnectModal';
 import CreateProfileModal from './CreateProfileModal';
@@ -18,15 +19,25 @@ const DesktopHeader = () => {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   
-  const { wallet, disconnectWallet, checkRegistration } = useWallet();
+  // ❌ OLD: const { wallet, disconnectWallet, checkRegistration } = useWallet();
+  // ✅ NEW: Zustand store
+  const { 
+    isConnected, 
+    address, 
+    points, 
+    level,
+    disconnectWallet, 
+    checkRegistration 
+  } = useWalletStore();
+  
   const { user } = useUser();
 
   // Check if user is registered when wallet connects
   useEffect(() => {
     const verifyRegistration = async () => {
-      if (wallet.isConnected && wallet.address) {
+      if (isConnected && address) {
         try {
-          const isRegistered = await checkRegistration(wallet.address);
+          const isRegistered = await checkRegistration(address);
           
           // If not registered, show profile creation modal
           if (!isRegistered && !profileModalOpen) {
@@ -38,10 +49,10 @@ const DesktopHeader = () => {
       }
     };
     
-    if (wallet.isConnected) {
+    if (isConnected) {
       verifyRegistration();
     }
-  }, [wallet.isConnected, wallet.address, checkRegistration, profileModalOpen]);
+  }, [isConnected, address, checkRegistration, profileModalOpen]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
@@ -106,7 +117,7 @@ const DesktopHeader = () => {
             <option value="Devnet">Devnet</option>
           </select>
 
-          {wallet.isConnected ? (
+          {isConnected ? (
             <div className="relative">
               <button
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
@@ -118,7 +129,7 @@ const DesktopHeader = () => {
                   <FaUser size={14} />
                 )}
                 <span className="text-sm">
-                  {wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)}
+                  {address?.slice(0, 6)}...{address?.slice(-4)}
                 </span>
               </button>
               
@@ -133,7 +144,7 @@ const DesktopHeader = () => {
                   </Link>
                   <div className="px-4 py-2 text-white/70">
                     <div className="text-xs">Points:</div>
-                    <div className="font-semibold">{wallet.points}</div>
+                    <div className="font-semibold">{points}</div>
                   </div>
                   <button
                     className="w-full text-left px-4 py-2 text-white hover:bg-white/10 border-t border-white/10"

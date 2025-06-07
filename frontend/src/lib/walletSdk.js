@@ -1,6 +1,6 @@
-// src/lib/walletSdk.js
+// src/lib/walletSdk.js - SIMPLE VERSION
 import { connectObsidion } from './obsidionWallet';
-import { connectAzguard } from './azguardClient';
+import { connectAzguardWindow } from './azguardWindowDirect';
 
 export const connectWallet = async (provider) => {
   console.log('Connecting to wallet:', provider);
@@ -9,7 +9,7 @@ export const connectWallet = async (provider) => {
     case 'obsidion':
       return await connectObsidion();
     case 'azguard':
-      return await connectAzguard();
+      return await connectAzguardWindow();
     default:
       return { 
         success: false, 
