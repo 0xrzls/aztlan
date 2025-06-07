@@ -30,7 +30,7 @@ pub contract AztlanPrivateSocial {
     fn constructor(oracle: AztecAddress) {
         // HARDCODED YOUR REGISTRY ADDRESS!
         storage.profile_registry.write(
-            AztecAddress::from_field(0x2ec8bbff14a6b5347b3db46dcd1544abf99e9546839a740b9e37b648bc5e176f)
+            AztecAddress::from_field(0x131899e1fa6c88e4481feea90f59e8777d824e0da6459e27a7f9b8f5884f3fe2)
         );
         storage.oracle.write(oracle);
         storage.twitter_verification_count.write(0);

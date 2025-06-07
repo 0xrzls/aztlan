@@ -1,20 +1,22 @@
+// src/pages/ProfilePage.js - COMPLETE FIXED VERSION
 import React, { useEffect, useState } from 'react';
 import { FaTwitter, FaDiscord } from 'react-icons/fa';
-import { useWallet } from '../context/WalletContext';
+import useWalletStore from '../store/walletStore';
 import { useUser } from '../context/UserContext';
 
 const ProfilePage = () => {
-  const { wallet } = useWallet();
+  const { isConnected, address, points, level } = useWalletStore();
+  
   const { user, getUserNFTs } = useUser();
   const [nfts, setNfts] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchNFTs = async () => {
-      if (wallet.isConnected && wallet.address) {
+      if (isConnected && address) {
         setLoading(true);
         try {
-          const userNfts = await getUserNFTs(wallet.address);
+          const userNfts = await getUserNFTs(address);
           setNfts(userNfts);
         } catch (error) {
           console.error('Failed to fetch NFTs:', error);
@@ -25,9 +27,9 @@ const ProfilePage = () => {
     };
 
     fetchNFTs();
-  }, [wallet.isConnected, wallet.address, getUserNFTs]);
+  }, [isConnected, address, getUserNFTs]);
 
-  if (!wallet.isConnected) {
+  if (!isConnected) {
     return (
       <div className="pt-[60px] md:pt-[72px] px-4 py-10 min-h-screen bg-[#0A0A0A] text-white">
         <div className="max-w-md mx-auto bg-[#121212] rounded-xl p-6 text-center">
@@ -71,16 +73,16 @@ const ProfilePage = () => {
           </div>
           
           <div className="absolute bottom-3 right-3 bg-black/40 px-3 py-1.5 rounded-lg text-sm">
-            <span className="text-white/80">Level: {wallet.level}</span>
+            <span className="text-white/80">Level: {level}</span>
           </div>
         </div>
         
         {/* Profile Info */}
         <div className="mt-16 mb-6">
           <h1 className="text-xl font-bold">{user.username || "Unnamed"}</h1>
-          <p className="text-white/70 text-sm">{wallet.address?.slice(0, 10)}...{wallet.address?.slice(-8)}</p>
+          <p className="text-white/70 text-sm">{address?.slice(0, 10)}...{address?.slice(-8)}</p>
           
-          {/* Social Media */}
+          {/* Social Media - FIXED */}
           <div className="flex items-center gap-3 mt-2">
             {user.twitter && (
               <a 
@@ -95,13 +97,10 @@ const ProfilePage = () => {
             )}
             
             {user.discord && (
-              <a 
-                href="#"
-                className="flex items-center gap-1 text-white/70 hover:text-indigo-400 text-sm"
-              >
+              <span className="flex items-center gap-1 text-white/70 text-sm">
                 <FaDiscord />
                 {user.discord}
-              </a>
+              </span>
             )}
           </div>
         </div>
@@ -110,11 +109,11 @@ const ProfilePage = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-[#1f1f1f] p-4 rounded-xl">
             <p className="text-white/70 text-sm mb-1">Points</p>
-            <p className="text-2xl font-semibold">{wallet.points}</p>
+            <p className="text-2xl font-semibold">{points}</p>
           </div>
           <div className="bg-[#1f1f1f] p-4 rounded-xl">
             <p className="text-white/70 text-sm mb-1">Level</p>
-            <p className="text-2xl font-semibold">{wallet.level}</p>
+            <p className="text-2xl font-semibold">{level}</p>
           </div>
           <div className="bg-[#1f1f1f] p-4 rounded-xl">
             <p className="text-white/70 text-sm mb-1">NFTs</p>

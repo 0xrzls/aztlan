@@ -1,0 +1,240 @@
+// src/hooks/useProfile.ts
+import { useState, useEffect, useCallback } from 'react';
+import { aztecClient, ProfileData, MintResult } from '../services/aztecClient';
+
+export interface ProfileState {
+  profile: any | null;
+  isLoading: boolean;
+  error: string | null;
+  socialVerification: {
+    twitter: boolean;
+    discord: boolean;
+  };
+}
+
+export interface WalletState {
+  address: string | null;
+  isConnected: boolean;
+  isConnecting: boolean;
+}
+
+export const useProfile = () => {
+  const [profileState, setProfileState] = useState<ProfileState>({
+    profile: null,
+    isLoading: false,
+    error: null,
+    socialVerification: {
+      twitter: false,
+      discord: false
+    }
+  });
+
+  const [walletState, setWalletState] = useState<WalletState>({
+    address: null,
+    isConnected: false,
+    isConnecting: false
+  });
+
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Initialize Aztec client
+  useEffect(() => {
+    const initializeClient = async () => {
+      try {
+        await aztecClient.initialize();
+        setIsInitialized(true);
+        
+        // Check if already connected
+        if (aztecClient.isConnected()) {
+          setWalletState({
+            address: aztecClient.getWalletAddress(),
+            isConnected: true,
+            isConnecting: false
+          });
+        }
+      } catch (error) {
+        console.error('Failed to initialize Aztec client:', error);
+        setProfileState(prev => ({
+          ...prev,
+          error: 'Failed to connect to Aztec network'
+        }));
+      }
+    };
+
+    initializeClient();
+  }, []);
+
+  // Connect wallet
+  const connectWallet = useCallback(async () => {
+    if (!isInitialized) {
+      throw new Error('Aztec client not initialized');
+    }
+
+    setWalletState(prev => ({ ...prev, isConnecting: true }));
+    
+    try {
+      const walletInfo = await aztecClient.connectWallet();
+      await aztecClient.loadContracts();
+      
+      setWalletState({
+        address: walletInfo.address,
+        isConnected: true,
+        isConnecting: false
+      });
+
+      // Load user profile after connecting
+      await loadUserProfile();
+      
+      return walletInfo;
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+      setWalletState(prev => ({ 
+        ...prev, 
+        isConnecting: false,
+        error: error.message 
+      }));
+      throw error;
+    }
+  }, [isInitialized]);
+
+  // Load user profile
+  const loadUserProfile = useCallback(async (userAddress?: string) => {
+    setProfileState(prev => ({ ...prev, isLoading: true, error: null }));
+    
+    try {
+      const profile = await aztecClient.getUserProfile(userAddress);
+      
+      let socialVerification = { twitter: false, discord: false };
+      
+      if (profile?.profileId) {
+        socialVerification = await aztecClient.checkSocialVerification(profile.profileId);
+      }
+      
+      setProfileState({
+        profile,
+        isLoading: false,
+        error: null,
+        socialVerification
+      });
+      
+      return profile;
+    } catch (error) {
+      console.error('Failed to load profile:', error);
+      setProfileState({
+        profile: null,
+        isLoading: false,
+        error: error.message,
+        socialVerification: { twitter: false, discord: false }
+      });
+    }
+  }, []);
+
+  // Mint new profile
+  const mintProfile = useCallback(async (profileData: ProfileData): Promise<MintResult> => {
+    if (!walletState.isConnected) {
+      throw new Error('Wallet not connected');
+    }
+
+    setProfileState(prev => ({ ...prev, isLoading: true, error: null }));
+    
+    try {
+      const result = await aztecClient.mintProfile(profileData);
+      
+      if (result.success) {
+        // Reload profile after successful mint
+        await loadUserProfile();
+        
+        // Store profile data locally for UI purposes
+        localStorage.setItem('aztlan_profile_data', JSON.stringify(profileData));
+      } else {
+        setProfileState(prev => ({ 
+          ...prev, 
+          isLoading: false,
+          error: result.error || 'Failed to mint profile' 
+        }));
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Failed to mint profile:', error);
+      setProfileState(prev => ({ 
+        ...prev, 
+        isLoading: false,
+        error: error.message 
+      }));
+      
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }, [walletState.isConnected, loadUserProfile]);
+
+  // Check transaction status
+  const checkTransactionStatus = useCallback(async (txHash: string) => {
+    try {
+      return await aztecClient.getTransactionStatus(txHash);
+    } catch (error) {
+      console.error('Failed to check transaction status:', error);
+      return null;
+    }
+  }, []);
+
+  // Get local profile data for UI
+  const getLocalProfileData = useCallback((): ProfileData | null => {
+    try {
+      const stored = localStorage.getItem('aztlan_profile_data');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Disconnect wallet
+  const disconnectWallet = useCallback(() => {
+    setWalletState({
+      address: null,
+      isConnected: false,
+      isConnecting: false
+    });
+    
+    setProfileState({
+      profile: null,
+      isLoading: false,
+      error: null,
+      socialVerification: { twitter: false, discord: false }
+    });
+    
+    localStorage.removeItem('aztlan_profile_data');
+  }, []);
+
+  return {
+    // Wallet state
+    wallet: walletState,
+    isInitialized,
+    
+    // Profile state
+    profile: profileState.profile,
+    isLoading: profileState.isLoading,
+    error: profileState.error,
+    socialVerification: profileState.socialVerification,
+    
+    // Profile data for UI
+    localProfileData: getLocalProfileData(),
+    
+    // Actions
+    connectWallet,
+    disconnectWallet,
+    mintProfile,
+    loadUserProfile,
+    checkTransactionStatus,
+    
+    // Helper functions
+    hasProfile: !!profileState.profile,
+    isProfileOwner: (address?: string) => {
+      if (!profileState.profile || !walletState.address) return false;
+      const targetAddress = address || walletState.address;
+      return profileState.profile.owner === targetAddress;
+    }
+  };
+};

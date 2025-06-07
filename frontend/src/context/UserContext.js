@@ -1,12 +1,15 @@
-// src/context/UserContext.js
+// src/context/UserContext.js - FIXED VERSION
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useWallet } from './WalletContext';
-import { hasProfile, getProfileId } from '../lib/aztecContractsSimple';
+import useWalletStore from '../store/walletStore'; // ✅ NEW: Use Zustand instead
+// ❌ REMOVED: import { useWallet } from './WalletContext';
+// ❌ REMOVED: import { hasProfile, getProfileId } from '../lib/aztecContractsSimple';
 
 const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
-  const { wallet } = useWallet();
+  // ✅ NEW: Use Zustand store
+  const { isConnected, address, account } = useWalletStore();
+  
   const [user, setUser] = useState({
     address: null,
     isRegistered: false,
@@ -21,46 +24,22 @@ export const UserProvider = ({ children }) => {
   // Check for existing user data when wallet changes
   useEffect(() => {
     const loadUserData = async () => {
-      const address = wallet.address;
-      
-      if (address && wallet.isConnected && wallet.account) {
+      if (address && isConnected && account) {
         try {
           console.log('Checking profile for address:', address);
           
-          // Check if user has profile on-chain
-          const hasProf = await hasProfile(wallet.account, address);
-          console.log('Has profile:', hasProf);
+          // For now, just check localStorage (simplified)
+          // TODO: Add back blockchain check later
+          const userData = localStorage.getItem(`user_data_${address}`);
           
-          if (hasProf) {
-            // Get profile ID from contract
-            const profileId = await getProfileId(wallet.account, address);
-            console.log('Profile ID:', profileId);
-            
-            // Load saved data from localStorage
-            const userData = localStorage.getItem(`user_data_${address}`);
-            
-            if (userData) {
-              const parsedData = JSON.parse(userData);
-              setUser(prev => ({
-                ...prev,
-                ...parsedData,
-                address,
-                isRegistered: true,
-                profileId
-              }));
-            } else {
-              // Has profile on-chain but no local data
-              setUser({
-                address,
-                isRegistered: true,
-                profileId,
-                username: '',
-                avatar: '',
-                twitter: '',
-                discord: '',
-                nfts: []
-              });
-            }
+          if (userData) {
+            const parsedData = JSON.parse(userData);
+            setUser(prev => ({
+              ...prev,
+              ...parsedData,
+              address,
+              isRegistered: true
+            }));
           } else {
             // No profile yet
             console.log('No profile found for address');
@@ -104,23 +83,23 @@ export const UserProvider = ({ children }) => {
       }
     };
     
-    if (wallet.isConnected && wallet.account) {
+    if (isConnected && account) {
       loadUserData();
     }
-  }, [wallet.address, wallet.isConnected, wallet.account]);
+  }, [address, isConnected, account]);
 
   // Register or update user profile (called after successful minting)
   const updateUserProfile = async (profileData) => {
     const { username, avatar, twitter, discord, profileId, txHash, nftUri } = profileData;
     
-    if (!wallet.address || !wallet.isConnected) {
+    if (!address || !isConnected) {
       return { success: false, error: 'No connected wallet' };
     }
     
     try {
-      // Profile has been minted on-chain, update local state
+      // Profile has been minted, update local state
       const updatedUser = {
-        address: wallet.address,
+        address: address,
         isRegistered: true,
         username,
         avatar,
@@ -144,7 +123,7 @@ export const UserProvider = ({ children }) => {
       setUser(updatedUser);
       
       // Save to localStorage for persistence
-      localStorage.setItem(`user_data_${wallet.address}`, JSON.stringify(updatedUser));
+      localStorage.setItem(`user_data_${address}`, JSON.stringify(updatedUser));
       
       console.log('Profile updated successfully:', updatedUser);
       return { success: true };

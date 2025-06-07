@@ -1,10 +1,10 @@
-// src/lib/aztec.js
+// src/lib/aztec.js - COMPLETE FIXED FILE
 
 // For now, we'll use mock functions until Aztec.js is properly configured for browser
 // In production, you would use the actual Aztec SDK with proper webpack configuration
 
 /**
- * Register a new user profile on-chain
+ * Register a new user profile on-chain (MOCK VERSION)
  */
 export const registerUser = async (account, username, avatarId) => {
   try {
@@ -14,10 +14,23 @@ export const registerUser = async (account, username, avatarId) => {
     // In production, this would interact with your Aztec smart contracts
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    return {
-      success: true,
+    // Store in localStorage for development
+    const profileData = {
+      username,
+      avatarId,
+      address: account?.address || 'mock_address',
+      createdAt: Date.now(),
       txHash: `0x${Math.random().toString(16).substring(2)}`,
       blockNumber: Math.floor(Math.random() * 1000000)
+    };
+    
+    localStorage.setItem(`aztlan_profile_${username}`, JSON.stringify(profileData));
+    localStorage.setItem(`aztlan_registered_${account?.address}`, 'true');
+    
+    return {
+      success: true,
+      txHash: profileData.txHash,
+      blockNumber: profileData.blockNumber
     };
   } catch (error) {
     console.error('User registration failed:', error);
@@ -29,20 +42,29 @@ export const registerUser = async (account, username, avatarId) => {
 };
 
 /**
- * Get user profile from chain
+ * Get user profile from chain (MOCK VERSION)
  */
 export const getUserProfile = async (account, userAddress) => {
   try {
     // Mock implementation
+    const storedProfile = localStorage.getItem(`aztlan_registered_${userAddress}`);
+    
+    if (storedProfile) {
+      return {
+        success: true,
+        profile: {
+          username: 'Mock User',
+          avatarId: 1,
+          points: '100',
+          level: '1',
+          registeredAt: Date.now().toString()
+        }
+      };
+    }
+    
     return {
-      success: true,
-      profile: {
-        username: 'Mock User',
-        avatarId: 1,
-        points: '100',
-        level: '1',
-        registeredAt: Date.now().toString()
-      }
+      success: false,
+      error: 'Profile not found'
     };
   } catch (error) {
     console.error('Failed to get user profile:', error);
@@ -54,7 +76,7 @@ export const getUserProfile = async (account, userAddress) => {
 };
 
 /**
- * Complete a quest
+ * Complete a quest (MOCK VERSION)
  */
 export const completeQuest = async (account, questId) => {
   try {
@@ -76,7 +98,7 @@ export const completeQuest = async (account, questId) => {
 };
 
 /**
- * Mint NFT for user
+ * Mint NFT for user (MOCK VERSION)
  */
 export const mintNFT = async (account, nftType, metadata) => {
   try {
@@ -98,7 +120,7 @@ export const mintNFT = async (account, nftType, metadata) => {
 };
 
 /**
- * Get user's NFTs
+ * Get user's NFTs (MOCK VERSION)
  */
 export const getUserNFTs = async (account, userAddress) => {
   try {
@@ -124,7 +146,7 @@ export const getUserNFTs = async (account, userAddress) => {
 };
 
 /**
- * Claim daily rewards
+ * Claim daily rewards (MOCK VERSION)
  */
 export const claimDailyReward = async (account) => {
   try {
@@ -146,7 +168,7 @@ export const claimDailyReward = async (account) => {
 };
 
 /**
- * Get available quests
+ * Get available quests (MOCK VERSION)
  */
 export const getAvailableQuests = async (account) => {
   try {
@@ -178,5 +200,18 @@ export const getAvailableQuests = async (account) => {
       success: false,
       error: error.message
     };
+  }
+};
+
+/**
+ * Check if user is registered (MOCK VERSION)
+ */
+export const isUserRegistered = async (account, address) => {
+  try {
+    const registered = localStorage.getItem(`aztlan_registered_${address}`);
+    return !!registered;
+  } catch (error) {
+    console.error('Failed to check registration:', error);
+    return false;
   }
 };
