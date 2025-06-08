@@ -1,8 +1,7 @@
-// src/components/CreateProfileModal.js - COMPLETE VERSION FOR REAL AZTEC CONTRACTS
+// src/components/CreateProfileModal.js
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaTwitter, FaDiscord, FaRandom, FaCheck } from 'react-icons/fa';
+import { FaTimes, FaRandom, FaCheck, FaTwitter, FaDiscord } from 'react-icons/fa';
 import useWalletStore from '../store/walletStore';
-import { generateProfileImage } from '../utils/profileImageGenerator';
 
 const AVATAR_FILES = [
   '01UID.png', '02UID.png', '03UID.png', '04UID.png',
@@ -145,27 +144,15 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
     setStep('generating');
 
     try {
-      // Step 1: Generate NFT image
-      let imageData;
-      try {
-        imageData = await generateProfileImage({
-          name: formData.displayName,
-          username: formData.username,
-          twitter: formData.twitter,
-          discord: formData.discord,
-          avatar: formData.avatar
-        });
-      } catch (imgError) {
-        console.warn('Image generation failed, using fallback:', imgError);
-        imageData = { dataUrl: formData.avatar };
-      }
-
+      // Step 1: Generate image (mock)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       setStep('minting');
 
       // Step 2: Create profile on contract
       const result = await createProfile({
         username: formData.username,
-        tokenURI: imageData.dataUrl || formData.avatar
+        tokenURI: formData.avatar
       });
 
       if (result.success) {
@@ -253,13 +240,6 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
               : 'Creating your profile on Aztec Network'
             }
           </p>
-          {step === 'minting' && (
-            <div className="mt-4">
-              <div className="text-xs text-white/50">
-                This may take 30-60 seconds on testnet...
-              </div>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -268,21 +248,34 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
   return (
     <div className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex justify-center items-center">
       <div className="bg-[#121212] rounded-2xl w-[90vw] max-w-md overflow-hidden animate-fade-in">
-        {/* Banner & Avatar */}
-        <div className="relative h-40 bg-gradient-to-r from-purple-900/60 to-purple-500/60">
-          <div className="absolute inset-0">
-            <img src="/banner-placeholder.png" alt="Banner" className="w-full h-full object-cover opacity-60" />
+        {/* Header */}
+        <div className="flex justify-between items-center p-6 border-b border-white/10">
+          <div>
+            <h2 className="text-xl font-semibold text-white">Create Profile</h2>
+            <p className="text-sm text-white/60 mt-1">Build your Aztec identity</p>
           </div>
           <button 
             onClick={onClose} 
-            className="absolute top-3 right-3 z-10 bg-black/40 p-2 rounded-full text-white hover:bg-black/60 transition" 
+            className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10"
             disabled={submitting}
           >
-            <FaTimes size={16} />
+            <FaTimes size={18} />
           </button>
-          <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-600/20 border border-red-600/40 rounded-md mx-6 mt-4 p-3">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="p-6 space-y-4">
+          {/* Avatar */}
+          <div className="flex flex-col items-center mb-6">
             <div className="relative">
-              <div className="w-24 h-24 rounded-full border-4 border-[#121212] overflow-hidden bg-purple-900/30">
+              <div className="w-24 h-24 rounded-full overflow-hidden bg-purple-900/30">
                 <img src={formData.avatar} alt="Avatar" className="w-full h-full object-cover" />
               </div>
               <button 
@@ -295,167 +288,105 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Content */}
-        <div className="pt-16 px-6">
-          {error && (
-            <div className="bg-red-600/20 border border-red-600/40 rounded-md p-3 mb-4">
-              <p className="text-red-400 text-sm">{error}</p>
-            </div>
-          )}
-
-          {/* Tabs */}
-          <div className="flex border-b border-white/10 mb-4">
-            <button
-              className={`py-2 px-4 text-sm font-medium transition ${
-                activeTab === 'profile' 
-                  ? 'text-white border-b-2 border-purple-500' 
-                  : 'text-white/50 hover:text-white/80'
-              }`}
-              onClick={() => setActiveTab('profile')}
+          {/* Username */}
+          <div>
+            <label className="block text-sm text-white/70 mb-1">Username *</label>
+            <input
+              type="text"
+              name="username"
+              placeholder="Enter username"
+              value={formData.username}
+              onChange={handleChange}
               disabled={submitting}
-            >
-              Profile
-            </button>
-            <button
-              className={`py-2 px-4 text-sm font-medium transition ${
-                activeTab === 'social' 
-                  ? 'text-white border-b-2 border-purple-500' 
-                  : 'text-white/50 hover:text-white/80'
+              className={`w-full bg-[#1f1f1f] text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 transition ${
+                validationState.username.checking
+                  ? 'focus:ring-yellow-500'
+                  : validationState.username.valid
+                  ? 'focus:ring-green-500'
+                  : formData.username && !validationState.username.valid
+                  ? 'focus:ring-red-500'
+                  : 'focus:ring-purple-500'
               }`}
-              onClick={() => setActiveTab('social')}
-              disabled={submitting}
-            >
-              Social
-            </button>
+            />
+            {formData.username && (
+              <p className={`text-xs mt-1 ${
+                validationState.username.checking
+                  ? 'text-yellow-400'
+                  : validationState.username.valid
+                  ? 'text-green-400'
+                  : 'text-red-400'
+              }`}>
+                {validationState.username.message}
+              </p>
+            )}
           </div>
 
-          {/* Profile Tab */}
-          {activeTab === 'profile' && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-white/70 mb-1">Username *</label>
-                <input
-                  type="text"
-                  name="username"
-                  placeholder="Enter username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  disabled={submitting}
-                  className={`w-full bg-[#1f1f1f] text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 transition ${
-                    validationState.username.checking
-                      ? 'focus:ring-yellow-500'
-                      : validationState.username.valid
-                      ? 'focus:ring-green-500'
-                      : formData.username && !validationState.username.valid
-                      ? 'focus:ring-red-500'
-                      : 'focus:ring-purple-500'
-                  }`}
-                />
-                {formData.username && (
-                  <p className={`text-xs mt-1 ${
-                    validationState.username.checking
-                      ? 'text-yellow-400'
-                      : validationState.username.valid
-                      ? 'text-green-400'
-                      : 'text-red-400'
-                  }`}>
-                    {validationState.username.message}
-                  </p>
-                )}
-              </div>
+          {/* Display Name */}
+          <div>
+            <label className="block text-sm text-white/70 mb-1">Display Name *</label>
+            <input
+              type="text"
+              name="displayName"
+              placeholder="Your display name"
+              value={formData.displayName}
+              onChange={handleChange}
+              disabled={submitting}
+              className="w-full bg-[#1f1f1f] text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-purple-500"
+            />
+          </div>
 
-              <div>
-                <label className="block text-sm text-white/70 mb-1">Display Name *</label>
-                <input
-                  type="text"
-                  name="displayName"
-                  placeholder="Your display name"
-                  value={formData.displayName}
-                  onChange={handleChange}
-                  disabled={submitting}
-                  className={`w-full bg-[#1f1f1f] text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 transition ${
-                    validationState.displayName.valid
-                      ? 'focus:ring-green-500'
-                      : formData.displayName && !validationState.displayName.valid
-                      ? 'focus:ring-red-500'
-                      : 'focus:ring-purple-500'
-                  }`}
-                />
-                {formData.displayName && validationState.displayName.message && (
-                  <p className="text-xs mt-1 text-red-400">
-                    {validationState.displayName.message}
-                  </p>
-                )}
-              </div>
+          {/* Bio */}
+          <div>
+            <label className="block text-sm text-white/70 mb-1">Bio</label>
+            <textarea
+              name="bio"
+              placeholder="Tell us about yourself..."
+              value={formData.bio}
+              onChange={handleChange}
+              disabled={submitting}
+              rows={3}
+              className="w-full bg-[#1f1f1f] text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-none"
+            />
+          </div>
 
-              <div>
-                <label className="block text-sm text-white/70 mb-1">Bio</label>
-                <textarea
-                  name="bio"
-                  placeholder="Tell us about yourself..."
-                  value={formData.bio}
-                  onChange={handleChange}
-                  disabled={submitting}
-                  rows={3}
-                  className="w-full bg-[#1f1f1f] text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-none"
-                />
-                <p className="text-xs text-white/50 mt-1">Optional - describe yourself</p>
-              </div>
+          {/* Social Media */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-white/80">Social Media (Optional)</h3>
+            
+            <div>
+              <label className="block text-sm text-white/70 mb-1 flex items-center gap-1">
+                <FaTwitter className="text-blue-400" /> Twitter
+              </label>
+              <input
+                type="text"
+                name="twitter"
+                placeholder="Your Twitter username"
+                value={formData.twitter}
+                onChange={handleChange}
+                disabled={submitting}
+                className="w-full bg-[#1f1f1f] text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              />
             </div>
-          )}
-
-          {/* Social Tab */}
-          {activeTab === 'social' && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-white/70 mb-1 flex items-center gap-1">
-                  <FaTwitter className="text-blue-400" /> Twitter
-                </label>
-                <input
-                  type="text"
-                  name="twitter"
-                  placeholder="Your Twitter username"
-                  value={formData.twitter}
-                  onChange={handleChange}
-                  disabled={submitting}
-                  className="w-full bg-[#1f1f1f] text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                />
-                <p className="text-xs text-white/50 mt-1">Optional - for future verification</p>
-              </div>
-              <div>
-                <label className="block text-sm text-white/70 mb-1 flex items-center gap-1">
-                  <FaDiscord className="text-indigo-400" /> Discord
-                </label>
-                <input
-                  type="text"
-                  name="discord"
-                  placeholder="Your Discord username"
-                  value={formData.discord}
-                  onChange={handleChange}
-                  disabled={submitting}
-                  className="w-full bg-[#1f1f1f] text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                />
-                <p className="text-xs text-white/50 mt-1">Optional - for future verification</p>
-              </div>
-              
-              <div className="bg-blue-600/10 border border-blue-600/30 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <div className="text-blue-400 text-sm">ℹ️</div>
-                  <div>
-                    <p className="text-blue-400 text-xs font-medium">Social Verification</p>
-                    <p className="text-blue-300/80 text-xs mt-1">
-                      Add your social handles now to enable verification later and earn reputation badges.
-                    </p>
-                  </div>
-                </div>
-              </div>
+            
+            <div>
+              <label className="block text-sm text-white/70 mb-1 flex items-center gap-1">
+                <FaDiscord className="text-indigo-400" /> Discord
+              </label>
+              <input
+                type="text"
+                name="discord"
+                placeholder="Your Discord username"
+                value={formData.discord}
+                onChange={handleChange}
+                disabled={submitting}
+                className="w-full bg-[#1f1f1f] text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              />
             </div>
-          )}
+          </div>
 
           {/* Actions */}
-          <div className="space-y-3 pb-6 mt-6">
+          <div className="space-y-3 pt-4">
             <button
               className={`w-full py-3 rounded-full text-white text-center font-semibold text-lg transition ${
                 isFormValid() && !submitting
@@ -482,36 +413,6 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
             >
               Cancel
             </button>
-            
-            {!isConnected && (
-              <div className="text-center">
-                <p className="text-red-400 text-sm">Please connect your wallet first</p>
-              </div>
-            )}
-            
-            {/* Form validation summary */}
-            {isConnected && !isFormValid() && (
-              <div className="text-center">
-                <p className="text-yellow-400 text-xs">
-                  {!validationState.username.valid ? 'Username required' :
-                   !validationState.displayName.valid ? 'Display name required' :
-                   validationState.username.checking ? 'Checking username...' : ''}
-                </p>
-              </div>
-            )}
-
-            {/* Aztec Network Info */}
-            <div className="bg-purple-600/10 border border-purple-600/30 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <div className="text-purple-400 text-sm">🔒</div>
-                <div>
-                  <p className="text-purple-400 text-xs font-medium">Privacy-First NFT</p>
-                  <p className="text-purple-300/80 text-xs mt-1">
-                    Your profile will be minted as a soulbound NFT on Aztec Network with zero-knowledge privacy.
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

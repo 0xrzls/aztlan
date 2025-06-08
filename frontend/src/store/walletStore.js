@@ -1,185 +1,253 @@
-// src/store/walletStore.js - FIXED VERSION (No Aztec Imports)
+// src/store/walletStore.js - CLEAN VERSION
 import { create } from 'zustand';
-import { connectWallet as connectWalletSdk, signMessage as signWalletMessage } from '../lib/walletSdk';
-import { authenticate } from '../utils/auth';
 
 const useWalletStore = create((set, get) => ({
-  // State - sama kayak WalletContext.js kamu
+  // State
   isConnected: false,
   address: null,
-  provider: null,
+  wallet: null,
   account: null,
   isLoading: false,
+  error: null,
+  
+  // Profile state - IMPORTANT: hasProfile is BOOLEAN, not function
+  profile: null,
+  hasProfile: false, // ✅ BOOLEAN STATE
+  socialVerifications: {
+    twitter: false,
+    discord: false,
+    telegram: false,
+    github: false,
+    farcaster: false,
+    email: false
+  },
+  
+  // Points & level (mock data)
   points: 0,
   level: 1,
-  error: null,
-  signature: null,
-  authMessage: null,
 
   // Actions
-  connectWallet: async (providerName) => {
+  connectWallet: async (providerName = 'create') => {
     set({ isLoading: true, error: null });
 
     try {
-      console.log('Connecting to wallet:', providerName);
+      console.log('🔗 Menghubungkan wallet...');
       
-      const connectionResult = await connectWalletSdk(providerName);
+      // Mock wallet connection untuk development
+      const mockAddress = '0x1234567890abcdef1234567890abcdef12345678';
+      const mockWallet = { address: mockAddress };
       
-      if (!connectionResult.success) {
-        throw new Error(connectionResult.error);
+      // Simulate delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Check if profile exists
+      const storedProfile = localStorage.getItem(`aztlan_profile_${mockAddress}`);
+      const hasExistingProfile = !!storedProfile;
+      let profileData = null;
+      
+      if (hasExistingProfile) {
+        try {
+          profileData = JSON.parse(storedProfile);
+        } catch (e) {
+          console.error('Error parsing stored profile:', e);
+        }
       }
       
-      const { account, address, provider } = connectionResult;
-      console.log('Wallet connected:', { address, provider });
+      // Mock points & level
+      const mockPoints = Math.floor(Math.random() * 1000) + 100;
+      const mockLevel = Math.floor(mockPoints / 200) + 1;
       
-      // Update state with connection info
       set({
         isConnected: true,
-        address,
-        provider,
-        account,
-        isLoading: true,
+        address: mockAddress,
+        wallet: mockWallet,
+        account: mockWallet,
+        profile: profileData ? { 
+          profileId: '1', 
+          owner: mockAddress, 
+          tokenURI: profileData.avatar 
+        } : null,
+        hasProfile: hasExistingProfile, // ✅ BOOLEAN
+        points: mockPoints,
+        level: mockLevel,
+        isLoading: false,
         error: null
       });
       
-      // Authenticate the user
-      const auth = await authenticate({ address, account });
+      // Store in localStorage
+      localStorage.setItem('wallet_connected', 'true');
+      localStorage.setItem('wallet_address', mockAddress);
       
-      if (auth.success) {
-        // Store connection info
-        localStorage.setItem('wallet_address', address);
-        localStorage.setItem('wallet_provider', provider);
-        localStorage.setItem('wallet_signature', auth.signature);
-        localStorage.setItem('wallet_auth_message', auth.message);
-        
-        // Mock points & level (sesuai code asli kamu)
-        const mockPoints = Math.floor(Math.random() * 1000);
-        const mockLevel = Math.floor(Math.random() * 5) + 1;
-        localStorage.setItem('wallet_points', mockPoints.toString());
-        localStorage.setItem('wallet_level', mockLevel.toString());
-        
-        // Update state with full info
-        set({
-          isConnected: true,
-          address,
-          provider,
-          account,
-          isLoading: false,
-          signature: auth.signature,
-          authMessage: auth.message,
-          points: mockPoints,
-          level: mockLevel,
-          error: null
-        });
-        
-        console.log('Wallet fully connected and authenticated');
-        return { success: true, address };
-      } else {
-        throw new Error(auth.error || 'Authentication failed');
-      }
+      console.log('✅ Wallet berhasil terhubung!');
+      return { success: true, address: mockAddress };
     } catch (error) {
-      console.error('Wallet connection error:', error);
+      console.error('❌ Koneksi wallet gagal:', error);
       set({
         isLoading: false,
-        error: error.message || 'Connection failed',
-        isConnected: false,
-        address: null,
-        account: null
+        error: error.message,
+        isConnected: false
       });
-      
       return { success: false, error: error.message };
     }
   },
 
   disconnectWallet: () => {
-    // Clear storage
-    localStorage.removeItem('wallet_address');
-    localStorage.removeItem('wallet_provider');
-    localStorage.removeItem('wallet_signature');
-    localStorage.removeItem('wallet_auth_message');
-    localStorage.removeItem('wallet_points');
-    localStorage.removeItem('wallet_level');
-    
-    // Reset state
     set({
       isConnected: false,
       address: null,
-      provider: null,
+      wallet: null,
       account: null,
-      isLoading: false,
+      profile: null,
+      hasProfile: false, // ✅ BOOLEAN
+      socialVerifications: {
+        twitter: false,
+        discord: false,
+        telegram: false,
+        github: false,
+        farcaster: false,
+        email: false
+      },
       points: 0,
       level: 1,
-      signature: null,
-      authMessage: null,
+      isLoading: false,
       error: null
     });
     
+    // Clear localStorage
+    localStorage.removeItem('wallet_connected');
+    localStorage.removeItem('wallet_address');
+    
+    console.log('👋 Wallet terputus');
     return { success: true };
   },
 
-  checkRegistration: async (address) => {
+  createProfile: async (profileData) => {
+    set({ isLoading: true, error: null });
+    
     try {
-      console.log('Checking registration for:', address);
+      // Simulate profile creation
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Simple localStorage check for now (no Aztec import)
-      const profiles = JSON.parse(localStorage.getItem('aztlan_profiles') || '{}');
-      const hasProfile = !!profiles[address];
+      const mockProfile = {
+        profileId: '1',
+        owner: get().address,
+        tokenURI: profileData.avatar || '/uid/01UID.png'
+      };
       
-      console.log('Registration check result:', hasProfile);
-      return hasProfile;
+      set({
+        profile: mockProfile,
+        hasProfile: true, // ✅ BOOLEAN
+        isLoading: false
+      });
+      
+      // Store profile data
+      const address = get().address;
+      localStorage.setItem(`aztlan_profile_${address}`, JSON.stringify(profileData));
+      
+      console.log('✅ Profil berhasil dibuat!');
+      return { success: true, txHash: 'mock-tx-hash' };
     } catch (error) {
-      console.error('Registration check error:', error);
-      return false;
-    }
-  },
-
-  signMessage: async (message) => {
-    try {
-      const currentAccount = get().account;
-      
-      if (!get().isConnected || !currentAccount) {
-        throw new Error('Wallet not connected');
-      }
-      
-      const result = await signWalletMessage(currentAccount, message);
-      
-      if (result.success) {
-        return { success: true, signature: result.signature };
-      } else {
-        throw new Error(result.error);
-      }
-    } catch (error) {
-      console.error('Error signing message:', error);
+      console.error('❌ Gagal membuat profil:', error);
+      set({ error: error.message, isLoading: false });
       return { success: false, error: error.message };
     }
   },
 
-  // Check for existing wallet connection on mount
-  checkStoredWallet: () => {
-    const address = localStorage.getItem('wallet_address');
-    const provider = localStorage.getItem('wallet_provider');
-    const signature = localStorage.getItem('wallet_signature');
-    const authMessage = localStorage.getItem('wallet_auth_message');
-    
-    if (address && provider) {
-      console.log('Found stored wallet connection');
+  isUsernameAvailable: async (username) => {
+    try {
+      // Simulate username check
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      set({
-        isConnected: true,
-        address,
-        provider,
-        isLoading: false,
-        signature,
-        authMessage,
-        points: parseInt(localStorage.getItem('wallet_points') || '0'),
-        level: parseInt(localStorage.getItem('wallet_level') || '1')
-      });
-      
-      console.log('Wallet restored from storage');
+      // Mock: username available if length > 3
+      return username.length > 3;
+    } catch (error) {
+      console.error('❌ Gagal cek username:', error);
+      throw error;
     }
   },
 
+  loadUserProfile: async () => {
+    try {
+      const address = get().address;
+      if (!address) return null;
+      
+      // Load from localStorage
+      const stored = localStorage.getItem(`aztlan_profile_${address}`);
+      if (stored) {
+        const profileData = JSON.parse(stored);
+        const mockProfile = {
+          profileId: '1',
+          owner: address,
+          tokenURI: profileData.avatar || '/uid/01UID.png'
+        };
+        
+        set({
+          profile: mockProfile,
+          hasProfile: true // ✅ BOOLEAN
+        });
+        
+        return { success: true, profile: mockProfile };
+      }
+      
+      set({ hasProfile: false }); // ✅ BOOLEAN
+      return { success: true, profile: null };
+    } catch (error) {
+      console.error('❌ Gagal load profil:', error);
+      set({ error: error.message });
+      throw error;
+    }
+  },
+
+  // Helper functions
+  getVerificationCount: () => {
+    const { socialVerifications } = get();
+    return Object.values(socialVerifications).filter(Boolean).length;
+  },
+
   clearError: () => set({ error: null }),
+
+  // Check for stored wallet on app load
+  checkStoredWallet: async () => {
+    const isConnected = localStorage.getItem('wallet_connected');
+    const storedAddress = localStorage.getItem('wallet_address');
+    
+    if (isConnected && storedAddress) {
+      try {
+        // Check if profile exists
+        const storedProfile = localStorage.getItem(`aztlan_profile_${storedAddress}`);
+        const hasExistingProfile = !!storedProfile;
+        let profileData = null;
+        
+        if (hasExistingProfile) {
+          try {
+            profileData = JSON.parse(storedProfile);
+          } catch (e) {
+            console.error('Error parsing stored profile:', e);
+          }
+        }
+        
+        set({
+          isConnected: true,
+          address: storedAddress,
+          wallet: { address: storedAddress },
+          account: { address: storedAddress },
+          profile: profileData ? { 
+            profileId: '1', 
+            owner: storedAddress, 
+            tokenURI: profileData.avatar 
+          } : null,
+          hasProfile: hasExistingProfile, // ✅ BOOLEAN
+          points: 500,
+          level: 3
+        });
+        
+        console.log('✅ Wallet restored from storage');
+      } catch (error) {
+        console.log('❌ Gagal restore wallet otomatis');
+      }
+    }
+  }
 }));
 
+// Export default
 export default useWalletStore;

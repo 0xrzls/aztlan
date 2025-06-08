@@ -1,6 +1,6 @@
-// src/components/DesktopHeader.js - UPDATED FOR REAL AZTEC - COMPLETE
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+// src/components/DesktopHeader.js - COMPLETE FIXED VERSION
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { FaChevronDown, FaWallet, FaUser, FaPlus } from 'react-icons/fa';
 import { LuSunMoon } from 'react-icons/lu';
 import { IoSunnyOutline } from 'react-icons/io5';
@@ -18,16 +18,15 @@ const DesktopHeader = () => {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   
-  // Updated: Use new Zustand store
+  // ✅ FIXED: Use hasProfile as boolean, not function
   const { 
     isConnected, 
     address, 
     points, 
     level,
     profile,
-    socialVerifications,
+    hasProfile, // ✅ This is boolean now
     disconnectWallet,
-    hasProfile,
     getVerificationCount
   } = useWalletStore();
   
@@ -35,7 +34,8 @@ const DesktopHeader = () => {
 
   // Auto-show profile creation modal for users without profiles
   useEffect(() => {
-    if (isConnected && address && !hasProfile() && !profileModalOpen) {
+    // ✅ FIXED: Use hasProfile as boolean, not function call
+    if (isConnected && address && !hasProfile && !profileModalOpen) {
       // Small delay to let wallet connection settle
       const timer = setTimeout(() => {
         setProfileModalOpen(true);
@@ -43,7 +43,7 @@ const DesktopHeader = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [isConnected, address, hasProfile, profileModalOpen]);
+  }, [isConnected, address, hasProfile, profileModalOpen]); // ✅ Fixed dependency
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
@@ -140,7 +140,8 @@ const DesktopHeader = () => {
                   <span className="text-sm font-medium">
                     {getDisplayName()}
                   </span>
-                  {hasProfile() && (
+                  {/* ✅ FIXED: Use hasProfile as boolean */}
+                  {hasProfile && (
                     <span className="text-xs text-purple-400">
                       {getVerificationCount()}/6 verified
                     </span>
@@ -161,7 +162,8 @@ const DesktopHeader = () => {
                       <div>
                         <p className="text-white font-medium text-sm">{getDisplayName()}</p>
                         <p className="text-white/60 text-xs">{address?.slice(0, 10)}...{address?.slice(-8)}</p>
-                        {hasProfile() && (
+                        {/* ✅ FIXED: Use hasProfile as boolean */}
+                        {hasProfile && (
                           <div className="flex items-center gap-1 mt-1">
                             <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                             <span className="text-green-400 text-xs">Profile Active</span>
@@ -195,7 +197,8 @@ const DesktopHeader = () => {
                     </div>
                   </div>
                   
-                  {!hasProfile() && (
+                  {/* ✅ FIXED: Use hasProfile as boolean */}
+                  {!hasProfile && (
                     <button
                       onClick={() => {
                         setProfileModalOpen(true);

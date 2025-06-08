@@ -1,4 +1,4 @@
-// src/components/MobileHeader.js - UPDATED FOR REAL AZTEC
+// src/components/MobileHeader.js - COMPLETE FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FaChevronDown, FaWallet, FaUser, FaPlus } from 'react-icons/fa';
@@ -21,16 +21,15 @@ const MobileHeader = () => {
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   
-  // Updated: Use new Zustand store
+  // ✅ FIXED: Use hasProfile as boolean, not function
   const { 
     isConnected, 
     address, 
     points,
     level,
     profile,
-    socialVerifications,
+    hasProfile, // ✅ This is boolean now
     disconnectWallet,
-    hasProfile,
     getVerificationCount
   } = useWalletStore();
   
@@ -38,14 +37,15 @@ const MobileHeader = () => {
 
   // Auto-show profile creation modal for users without profiles
   useEffect(() => {
-    if (isConnected && address && !hasProfile() && !profileModalOpen) {
+    // ✅ FIXED: Use hasProfile as boolean, not function call
+    if (isConnected && address && !hasProfile && !profileModalOpen) {
       const timer = setTimeout(() => {
         setProfileModalOpen(true);
       }, 1000);
       
       return () => clearTimeout(timer);
     }
-  }, [isConnected, address, hasProfile, profileModalOpen]);
+  }, [isConnected, address, hasProfile, profileModalOpen]); // ✅ Fixed dependency
 
   const handleDisconnect = () => {
     disconnectWallet();
@@ -142,7 +142,8 @@ const MobileHeader = () => {
                   <span className="text-xs font-medium leading-none">
                     {getDisplayName()}
                   </span>
-                  {hasProfile() && (
+                  {/* ✅ FIXED: Use hasProfile as boolean */}
+                  {hasProfile && (
                     <span className="text-xs text-purple-400 leading-none mt-0.5">
                       {getVerificationCount()}/6
                     </span>
@@ -162,7 +163,8 @@ const MobileHeader = () => {
                       <div>
                         <p className="text-white font-medium text-sm">{getDisplayName()}</p>
                         <p className="text-white/60 text-xs">{address?.slice(0, 8)}...{address?.slice(-6)}</p>
-                        {hasProfile() && (
+                        {/* ✅ FIXED: Use hasProfile as boolean */}
+                        {hasProfile && (
                           <div className="flex items-center gap-1 mt-1">
                             <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
                             <span className="text-green-400 text-xs">Active</span>
@@ -196,7 +198,8 @@ const MobileHeader = () => {
                     </div>
                   </div>
                   
-                  {!hasProfile() && (
+                  {/* ✅ FIXED: Use hasProfile as boolean */}
+                  {!hasProfile && (
                     <button
                       onClick={() => {
                         setProfileModalOpen(true);
