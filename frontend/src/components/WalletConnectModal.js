@@ -1,40 +1,51 @@
-// src/components/WalletConnectModal.js - UPDATED FOR AZTEC
+// src/components/WalletConnectModal.js - UPDATED FOR REAL AZTEC
 import React, { useState } from 'react';
-import { FaTimes, FaPlus } from 'react-icons/fa';
+import { FaTimes, FaPlus, FaCog, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import useWalletStore from '../store/walletStore';
 
 const WalletConnectModal = ({ isOpen, onClose }) => {
-  const { connectWallet, isLoading, error } = useWalletStore();
+  const { 
+    connectWallet, 
+    isLoading, 
+    error, 
+    developmentMode, 
+    useMockData, 
+    toggleMockMode 
+  } = useWalletStore();
   
   const [connecting, setConnecting] = useState(false);
   const [connectingProvider, setConnectingProvider] = useState(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   if (!isOpen) return null;
 
   const walletOptions = [
     {
       id: 'create',
-      name: 'Create New Wallet',
-      description: 'Generate a new Aztec wallet in your browser',
+      name: 'Create Aztec Wallet',
+      description: useMockData 
+        ? 'Generate a mock wallet for development' 
+        : 'Generate a new Aztec wallet on testnet',
       icon: '/icons/create-wallet.svg',
       available: true,
-      recommended: true
+      recommended: true,
+      status: useMockData ? 'mock' : 'real'
     },
     {
-      id: 'obsidion',
-      name: 'Obsidion Wallet',
-      description: 'Connect your Obsidion browser extension',
-      icon: '/wallets/obsidion.svg',
-      available: !!window.obsidion,
-      comingSoon: !window.obsidion
+      id: 'restore',
+      name: 'Restore Existing Wallet',
+      description: 'Restore from private key or seed phrase',
+      icon: '/icons/restore-wallet.svg',
+      available: false,
+      comingSoon: true
     },
     {
-      id: 'azguard',
-      name: 'Azguard Wallet',
-      description: 'Connect your Azguard browser extension',
-      icon: '/wallets/azguard.svg',
-      available: !!window.azguard,
-      comingSoon: !window.azguard
+      id: 'browser',
+      name: 'Browser Extension',
+      description: 'Connect via Aztec browser extension',
+      icon: '/wallets/aztec-extension.svg',
+      available: false,
+      comingSoon: true
     }
   ];
 
@@ -57,6 +68,24 @@ const WalletConnectModal = ({ isOpen, onClose }) => {
     }
   };
 
+  const getConnectionStatusMessage = () => {
+    if (useMockData) {
+      return {
+        type: 'warning',
+        title: 'Development Mode',
+        message: 'Using mock data for testing. Toggle below to use real Aztec Network.'
+      };
+    } else {
+      return {
+        type: 'info',
+        title: 'Aztec Testnet',
+        message: 'Connecting to real Aztec Alpha Testnet. Transactions will be on-chain.'
+      };
+    }
+  };
+
+  const statusMessage = getConnectionStatusMessage();
+
   return (
     <div className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex justify-center items-center">
       <div className="bg-[#121212] w-full max-w-md rounded-xl overflow-hidden animate-fade-in">
@@ -66,14 +95,78 @@ const WalletConnectModal = ({ isOpen, onClose }) => {
             <h2 className="text-xl font-semibold text-white">Connect to Aztec</h2>
             <p className="text-sm text-white/60 mt-1">Choose how you want to connect</p>
           </div>
-          <button 
-            onClick={onClose} 
-            className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10"
-            disabled={connecting || isLoading}
-          >
-            <FaTimes size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            {developmentMode && (
+              <button
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10"
+                title="Advanced settings"
+              >
+                <FaCog size={16} />
+              </button>
+            )}
+            <button 
+              onClick={onClose} 
+              className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10"
+              disabled={connecting || isLoading}
+            >
+              <FaTimes size={18} />
+            </button>
+          </div>
         </div>
+
+        {/* Status Message */}
+        <div className={`mx-6 mt-4 p-3 rounded-md border ${
+          statusMessage.type === 'warning' 
+            ? 'bg-orange-600/20 border-orange-600/40' 
+            : 'bg-blue-600/20 border-blue-600/40'
+        }`}>
+          <div className="flex items-start gap-3">
+            <div className={`text-lg ${
+              statusMessage.type === 'warning' ? 'text-orange-400' : 'text-blue-400'
+            }`}>
+              {statusMessage.type === 'warning' ? '⚠️' : 'ℹ️'}
+            </div>
+            <div>
+              <h4 className={`font-medium text-sm ${
+                statusMessage.type === 'warning' ? 'text-orange-400' : 'text-blue-400'
+              }`}>
+                {statusMessage.title}
+              </h4>
+              <p className={`text-xs mt-1 ${
+                statusMessage.type === 'warning' ? 'text-orange-300/80' : 'text-blue-300/80'
+              }`}>
+                {statusMessage.message}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Advanced Settings */}
+        {developmentMode && showAdvanced && (
+          <div className="mx-6 mt-4 p-4 bg-white/5 rounded-lg border border-white/10">
+            <h4 className="text-white font-medium text-sm mb-3">Development Settings</h4>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white text-sm">Mock Mode</p>
+                <p className="text-white/60 text-xs">Use mock data instead of real blockchain</p>
+              </div>
+              <button
+                onClick={toggleMockMode}
+                className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm transition ${
+                  useMockData 
+                    ? 'bg-orange-600/20 text-orange-400' 
+                    : 'bg-green-600/20 text-green-400'
+                }`}
+                disabled={connecting}
+              >
+                {useMockData ? <FaToggleOn size={16} /> : <FaToggleOff size={16} />}
+                {useMockData ? 'Mock' : 'Real'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Error Message */}
         {error && (
@@ -92,19 +185,21 @@ const WalletConnectModal = ({ isOpen, onClose }) => {
               connectingProvider={connectingProvider}
               onConnect={() => handleConnectWallet(wallet.id)}
               disabled={!wallet.available || connecting || isLoading}
+              useMockData={useMockData}
             />
           ))}
         </div>
 
         {/* Footer */}
         <div className="p-6 pt-0">
-          <div className="bg-blue-600/10 border border-blue-600/30 rounded-lg p-4">
+          <div className="bg-purple-600/10 border border-purple-600/30 rounded-lg p-4">
             <div className="flex items-start gap-3">
-              <div className="text-blue-400 text-lg">ℹ️</div>
+              <div className="text-purple-400 text-lg">🔒</div>
               <div>
-                <h4 className="text-blue-400 font-medium text-sm">About Aztec Network</h4>
-                <p className="text-blue-300/80 text-xs mt-1">
+                <h4 className="text-purple-400 font-medium text-sm">About Aztec Network</h4>
+                <p className="text-purple-300/80 text-xs mt-1">
                   Aztec is a privacy-first L2 that enables confidential smart contracts and transactions.
+                  {useMockData && ' Currently running in development mode.'}
                 </p>
               </div>
             </div>
@@ -124,7 +219,8 @@ const WalletOptionCard = ({
   connecting, 
   connectingProvider, 
   onConnect, 
-  disabled 
+  disabled,
+  useMockData 
 }) => {
   const isConnecting = connecting && connectingProvider === wallet.id;
   
@@ -132,7 +228,7 @@ const WalletOptionCard = ({
     <button
       onClick={onConnect}
       disabled={disabled}
-      className={`w-full p-4 rounded-xl border transition-all text-left
+      className={`w-full p-4 rounded-xl border transition-all text-left relative
         ${disabled && !wallet.available
           ? 'border-white/10 bg-white/5 cursor-not-allowed'
           : 'border-white/20 bg-white/10 hover:bg-white/20 hover:border-purple-500/50'
@@ -175,6 +271,15 @@ const WalletOptionCard = ({
                 Coming Soon
               </span>
             )}
+            {wallet.status && (
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                wallet.status === 'mock' 
+                  ? 'bg-orange-500/20 text-orange-400' 
+                  : 'bg-green-500/20 text-green-400'
+              }`}>
+                {wallet.status}
+              </span>
+            )}
           </div>
           <p className={`text-sm mt-1 ${disabled && !wallet.available ? 'text-white/30' : 'text-white/60'}`}>
             {wallet.description}
@@ -185,7 +290,9 @@ const WalletOptionCard = ({
         {isConnecting && (
           <div className="flex items-center gap-2">
             <div className="h-5 w-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-purple-400 text-sm">Connecting...</span>
+            <span className="text-purple-400 text-sm">
+              {useMockData ? 'Creating mock wallet...' : 'Connecting to Aztec...'}
+            </span>
           </div>
         )}
       </div>

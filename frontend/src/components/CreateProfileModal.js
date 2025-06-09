@@ -1,6 +1,6 @@
-// src/components/CreateProfileModal.js
+// src/components/CreateProfileModal.js - COMPLETE REAL AZTEC VERSION
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaRandom, FaCheck, FaTwitter, FaDiscord } from 'react-icons/fa';
+import { FaTimes, FaRandom, FaCheck, FaTwitter, FaDiscord, FaExclamationTriangle } from 'react-icons/fa';
 import useWalletStore from '../store/walletStore';
 
 const AVATAR_FILES = [
@@ -16,7 +16,8 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
     isLoading, 
     error, 
     isConnected,
-    address 
+    address,
+    useMockData
   } = useWalletStore();
   
   const [activeTab, setActiveTab] = useState('profile');
@@ -35,7 +36,12 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
   });
   
   const [submitting, setSubmitting] = useState(false);
-  const [step, setStep] = useState('form'); // 'form', 'generating', 'minting', 'success'
+  const [step, setStep] = useState('form'); // 'form', 'preparing', 'minting', 'success'
+  const [transactionProgress, setTransactionProgress] = useState({
+    phase: 'idle', // 'idle', 'preparing', 'proving', 'sending', 'mining', 'success', 'error'
+    message: '',
+    txHash: null
+  });
 
   // Pick random avatar on mount
   useEffect(() => {
@@ -137,53 +143,100 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
            isConnected;
   };
 
+  const updateProgress = (phase, message, txHash = null) => {
+    setTransactionProgress({ phase, message, txHash });
+  };
+
   const handleSubmit = async () => {
     if (!isFormValid()) return;
     
     setSubmitting(true);
-    setStep('generating');
+    setStep('preparing');
 
     try {
-      // Step 1: Generate image (mock)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setStep('minting');
-
-      // Step 2: Create profile on contract
-      const result = await createProfile({
-        username: formData.username,
-        tokenURI: formData.avatar
-      });
-
-      if (result.success) {
-        setStep('success');
+      if (useMockData) {
+        // Mock flow for development
+        updateProgress('preparing', 'Preparing mock profile...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Store profile data locally for UI
-        const profileData = {
+        updateProgress('proving', 'Generating mock proofs...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        updateProgress('sending', 'Creating mock transaction...');
+        setStep('minting');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        updateProgress('mining', 'Simulating blockchain confirmation...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const result = await createProfile({
           username: formData.username,
           displayName: formData.displayName,
           bio: formData.bio,
           avatar: formData.avatar,
           twitter: formData.twitter,
-          discord: formData.discord,
-          txHash: result.txHash,
-          createdAt: Date.now()
-        };
-        
-        localStorage.setItem(`aztlan_profile_${address}`, JSON.stringify(profileData));
-        
-        // Auto close after 3 seconds
-        setTimeout(() => {
-          if (onComplete) onComplete(profileData);
-          onClose();
-          resetForm();
-        }, 3000);
-        
+          discord: formData.discord
+        });
+
+        if (result.success) {
+          updateProgress('success', 'Mock profile created successfully!', result.txHash);
+          setStep('success');
+        } else {
+          throw new Error(result.error);
+        }
       } else {
-        throw new Error(result.error || 'Failed to create profile');
+        // Real Aztec flow
+        updateProgress('preparing', 'Preparing transaction data...');
+        setStep('minting');
+        
+        updateProgress('proving', 'Generating privacy proofs (this may take a moment)...');
+        
+        const result = await createProfile({
+          username: formData.username,
+          displayName: formData.displayName,
+          bio: formData.bio,
+          avatar: formData.avatar,
+          twitter: formData.twitter,
+          discord: formData.discord
+        });
+
+        if (result.success) {
+          updateProgress('mining', 'Waiting for blockchain confirmation...');
+          
+          // For real Aztec, wait a bit for confirmation
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          updateProgress('success', 'Profile created on Aztec Network!', result.txHash);
+          setStep('success');
+        } else {
+          throw new Error(result.error || 'Failed to create profile');
+        }
       }
+      
+      // Store profile data locally for UI
+      const profileData = {
+        username: formData.username,
+        displayName: formData.displayName,
+        bio: formData.bio,
+        avatar: formData.avatar,
+        twitter: formData.twitter,
+        discord: formData.discord,
+        txHash: transactionProgress.txHash,
+        createdAt: Date.now()
+      };
+      
+      localStorage.setItem(`aztlan_profile_${address}`, JSON.stringify(profileData));
+      
+      // Auto close after 3 seconds
+      setTimeout(() => {
+        if (onComplete) onComplete(profileData);
+        onClose();
+        resetForm();
+      }, 3000);
+      
     } catch (err) {
       console.error('Profile creation error:', err);
+      updateProgress('error', err.message || 'Failed to create profile');
       setStep('form');
     } finally {
       setSubmitting(false);
@@ -201,6 +254,7 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
     });
     setStep('form');
     setActiveTab('profile');
+    setTransactionProgress({ phase: 'idle', message: '', txHash: null });
   };
 
   if (!isOpen) return null;
@@ -215,8 +269,16 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
           </div>
           <h2 className="text-xl font-bold text-white mb-2">Profile Created!</h2>
           <p className="text-white/70 mb-4">
-            Your Aztec profile has been successfully minted on the blockchain.
+            Your Aztec profile has been successfully {useMockData ? 'mocked' : 'minted'} {useMockData ? 'in development mode' : 'on the blockchain'}.
           </p>
+          {transactionProgress.txHash && (
+            <div className="bg-white/5 rounded-lg p-3 mb-4">
+              <p className="text-xs text-white/60">Transaction Hash:</p>
+              <p className="text-xs text-white/80 font-mono break-all">
+                {transactionProgress.txHash}
+              </p>
+            </div>
+          )}
           <div className="text-sm text-white/50">
             Redirecting in 3 seconds...
           </div>
@@ -226,20 +288,73 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
   }
 
   // Loading states
-  if (step === 'generating' || step === 'minting') {
+  if (step === 'preparing' || step === 'minting') {
     return (
       <div className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex justify-center items-center">
         <div className="bg-[#121212] rounded-2xl w-[90vw] max-w-md p-8 text-center">
           <div className="w-20 h-20 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          
           <h2 className="text-xl font-bold text-white mb-2">
-            {step === 'generating' ? 'Generating NFT...' : 'Minting Profile...'}
+            {step === 'preparing' ? 'Preparing Profile...' : 'Creating Profile...'}
           </h2>
-          <p className="text-white/70">
-            {step === 'generating' 
-              ? 'Creating your unique profile image' 
-              : 'Creating your profile on Aztec Network'
+          
+          <div className="mb-4">
+            <div className="text-white/70 mb-2">{transactionProgress.message}</div>
+            
+            {/* Progress indicator */}
+            <div className="w-full bg-white/10 rounded-full h-2 mb-4">
+              <div 
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  transactionProgress.phase === 'preparing' ? 'w-1/4 bg-blue-500' :
+                  transactionProgress.phase === 'proving' ? 'w-2/4 bg-yellow-500' :
+                  transactionProgress.phase === 'sending' ? 'w-3/4 bg-orange-500' :
+                  transactionProgress.phase === 'mining' ? 'w-full bg-green-500' :
+                  'w-0 bg-gray-500'
+                }`}
+              />
+            </div>
+            
+            {/* Phase indicator */}
+            <div className="flex justify-between text-xs text-white/50">
+              <span className={transactionProgress.phase === 'preparing' ? 'text-blue-400' : ''}>
+                Prepare
+              </span>
+              <span className={transactionProgress.phase === 'proving' ? 'text-yellow-400' : ''}>
+                Prove
+              </span>
+              <span className={transactionProgress.phase === 'sending' ? 'text-orange-400' : ''}>
+                Send
+              </span>
+              <span className={transactionProgress.phase === 'mining' ? 'text-green-400' : ''}>
+                Confirm
+              </span>
+            </div>
+          </div>
+          
+          {useMockData && (
+            <div className="bg-orange-600/20 border border-orange-600/40 rounded-md p-3 mb-4">
+              <div className="flex items-center gap-2">
+                <FaExclamationTriangle className="text-orange-400" size={14} />
+                <span className="text-orange-400 text-sm">Development Mode</span>
+              </div>
+              <p className="text-orange-300/80 text-xs mt-1">
+                This is a mock transaction for testing purposes.
+              </p>
+            </div>
+          )}
+          
+          <p className="text-white/60 text-sm">
+            {useMockData 
+              ? 'Simulating blockchain operations...' 
+              : 'Please wait while your profile is created on Aztec Network...'
             }
           </p>
+          
+          {!useMockData && transactionProgress.phase === 'proving' && (
+            <p className="text-white/50 text-xs mt-2">
+              ⚡ Aztec privacy proofs can take 30-60 seconds to generate
+            </p>
+          )}
         </div>
       </div>
     );
@@ -252,7 +367,9 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
         <div className="flex justify-between items-center p-6 border-b border-white/10">
           <div>
             <h2 className="text-xl font-semibold text-white">Create Profile</h2>
-            <p className="text-sm text-white/60 mt-1">Build your Aztec identity</p>
+            <p className="text-sm text-white/60 mt-1">
+              Build your Aztec identity {useMockData && '(Development Mode)'}
+            </p>
           </div>
           <button 
             onClick={onClose} 
@@ -262,6 +379,19 @@ const CreateProfileModal = ({ isOpen, onClose, onComplete }) => {
             <FaTimes size={18} />
           </button>
         </div>
+
+        {/* Mode indicator */}
+        {useMockData && (
+          <div className="bg-orange-600/20 border-b border-orange-600/40 px-6 py-3">
+            <div className="flex items-center gap-2">
+              <FaExclamationTriangle className="text-orange-400" size={14} />
+              <span className="text-orange-400 text-sm font-medium">Development Mode</span>
+            </div>
+            <p className="text-orange-300/80 text-xs mt-1">
+              Profile will be stored locally for testing. Switch to real mode in wallet settings.
+            </p>
+          </div>
+        )}
 
         {/* Error Message */}
         {error && (
