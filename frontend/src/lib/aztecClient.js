@@ -1,4 +1,4 @@
-// src/lib/aztecClient.js - REAL AZTEC INTEGRATION (FIXED IMPORTS)
+// src/lib/aztecClient.js - OPTIMIZED WITH BETTER ERROR HANDLING & TIMEOUTS
 import { 
   createPXEClient, 
   waitForPXE, 
@@ -14,13 +14,20 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import ProfileRegistryArtifact from '../artifacts/AztlanProfileRegistry.json';
 import PrivateSocialArtifact from '../artifacts/AztlanPrivateSocial.json';
 
-// Aztec testnet configuration
+// Aztec testnet configuration with optimized timeouts
 const AZTEC_CONFIG = {
   PXE_URL: process.env.REACT_APP_PXE_URL || 'https://aztec-alpha-testnet-fullnode.zkv.xyz',
   SPONSORED_FPC_ADDRESS: '0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5',
-  TESTNET_TIMEOUT: 600000, // 10 minutes
-  BLOCK_TIME: 36000, // ~36 seconds
-  POLL_INTERVAL: 15000, // 15 seconds
+  
+  // Optimized timeouts for better UX
+  INIT_TIMEOUT: 20000, // 20 seconds for initial connection
+  DEPLOYMENT_TIMEOUT: 300000, // 5 minutes for account deployment
+  TRANSACTION_TIMEOUT: 180000, // 3 minutes for regular transactions
+  POLL_INTERVAL: 10000, // 10 seconds polling
+  
+  // Retry configuration
+  MAX_RETRIES: 3,
+  RETRY_DELAY: 2000, // 2 seconds between retries
   
   CONTRACT_ADDRESSES: {
     ProfileRegistry: process.env.REACT_APP_PROFILE_REGISTRY_ADDRESS || 
@@ -30,7 +37,7 @@ const AZTEC_CONFIG = {
   }
 };
 
-class RealAztecClient {
+class OptimizedAztecClient {
   constructor() {
     this.pxe = null;
     this.wallet = null;
@@ -40,49 +47,95 @@ class RealAztecClient {
     this.error = null;
     this.transactionMonitors = new Map();
     this.sponsoredFPC = null;
+    this.connectionAttempts = 0;
+    this.lastConnectionTime = null;
   }
 
-  // Initialize PXE connection with comprehensive error handling
+  // Enhanced initialization with retry logic and better error handling
   async initialize() {
+    this.connectionAttempts++;
+    
     try {
-      console.log('🔗 Initializing REAL Aztec PXE connection to testnet...');
+      console.log(`🔗 Initializing Aztec PXE connection (attempt ${this.connectionAttempts})...`);
+      
+      // Emit progress events for UI
+      this.emitProgress('initializing', 'Connecting to Aztec Network...', 10);
       
       this.pxe = createPXEClient(AZTEC_CONFIG.PXE_URL);
       
-      // Wait for PXE with timeout
-      await Promise.race([
-        waitForPXE(this.pxe),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('PXE connection timeout after 30 seconds')), 30000)
-        )
+      // Enhanced connection with timeout and retries
+      await this.connectWithRetries();
+      
+      this.emitProgress('validating', 'Validating connection...', 30);
+      
+      // Validate connection with node info
+      const nodeInfo = await Promise.race([
+        this.pxe.getNodeInfo(),
+        this.createTimeoutPromise(5000, 'Node info timeout')
       ]);
       
-      // Validate connection
-      const nodeInfo = await this.pxe.getNodeInfo();
       console.log('✅ Connected to Aztec testnet:', {
         chainId: nodeInfo.chainId,
         version: nodeInfo.version,
         protocolVersion: nodeInfo.protocolVersion
       });
       
+      this.emitProgress('setup', 'Setting up services...', 50);
+      
       // Initialize sponsored FPC
       await this.initializeSponsoredFPC();
       
+      this.emitProgress('complete', 'Connected successfully!', 100);
+      
       this.isInitialized = true;
+      this.lastConnectionTime = Date.now();
+      
       return { success: true };
       
     } catch (error) {
-      console.error('❌ Aztec PXE initialization failed:', error);
+      console.error(`❌ Aztec PXE initialization failed (attempt ${this.connectionAttempts}):`, error);
       this.error = this.getErrorMessage(error);
       
-      // Auto-retry once after 5 seconds
-      if (!error.message.includes('retry')) {
-        console.log('🔄 Retrying Aztec connection...');
-        await new Promise(resolve => setTimeout(resolve, 5000));
+      // Retry logic with exponential backoff
+      if (this.connectionAttempts < AZTEC_CONFIG.MAX_RETRIES) {
+        const delay = AZTEC_CONFIG.RETRY_DELAY * Math.pow(2, this.connectionAttempts - 1);
+        console.log(`🔄 Retrying in ${delay}ms...`);
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
         return await this.initialize();
       }
       
-      throw new Error(`Failed to connect to Aztec Network: ${this.getErrorMessage(error)}`);
+      // All retries failed
+      this.emitProgress('error', this.getErrorMessage(error), 0);
+      throw new Error(`Failed to connect to Aztec Network after ${AZTEC_CONFIG.MAX_RETRIES} attempts: ${this.getErrorMessage(error)}`);
+    }
+  }
+
+  // Enhanced connection with proper timeout handling
+  async connectWithRetries() {
+    const connectionPromises = [
+      waitForPXE(this.pxe),
+      this.createTimeoutPromise(AZTEC_CONFIG.INIT_TIMEOUT, 'PXE connection timeout')
+    ];
+    
+    await Promise.race(connectionPromises);
+  }
+
+  // Enhanced timeout promise with specific error types
+  createTimeoutPromise(timeout, message) {
+    return new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(message));
+      }, timeout);
+    });
+  }
+
+  // Progress event emitter for UI updates
+  emitProgress(phase, message, progress) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('aztecProgress', {
+        detail: { phase, message, progress }
+      }));
     }
   }
 
@@ -91,11 +144,9 @@ class RealAztecClient {
     try {
       console.log('💰 Setting up sponsored fee payment...');
       
-      // For now, we'll handle sponsored FPC registration later when we have a wallet
-      // This is a placeholder for the sponsored FPC setup
       this.sponsoredFPC = {
         address: AztecAddress.fromString(AZTEC_CONFIG.SPONSORED_FPC_ADDRESS),
-        isReady: false
+        isReady: true
       };
       
       console.log('✅ Sponsored FPC configured');
@@ -105,32 +156,22 @@ class RealAztecClient {
     }
   }
 
-  // Create new wallet account with REAL deployment
+  // Enhanced wallet creation with better progress tracking
   async createWallet(progressCallback) {
     if (!this.pxe) throw new Error('PXE not initialized');
     
     try {
-      console.log('👛 Creating REAL Aztec wallet account...');
+      console.log('👛 Creating Aztec wallet account...');
       
-      progressCallback?.({ 
-        phase: 'generating_keys', 
-        progress: 10, 
-        message: 'Generating cryptographic keys...',
-        timeEstimate: '30 seconds' 
-      });
+      this.updateProgress(progressCallback, 'generating_keys', 10, 'Generating cryptographic keys...', '30 seconds');
       
-      // Generate REAL cryptographic keys for testnet
+      // Generate cryptographic keys
       const secretKey = Fr.random();
       const signingPrivateKey = GrumpkinScalar.random();
       
-      progressCallback?.({ 
-        phase: 'creating_account', 
-        progress: 20, 
-        message: 'Creating account instance...',
-        timeEstimate: '1 minute'
-      });
+      this.updateProgress(progressCallback, 'creating_account', 20, 'Creating account instance...', '1 minute');
       
-      // Create Schnorr account (most common type)
+      // Create Schnorr account
       this.account = getSchnorrAccount(this.pxe, secretKey, signingPrivateKey);
       const address = this.account.getAddress();
       
@@ -139,56 +180,41 @@ class RealAztecClient {
       // Store keys securely BEFORE deployment
       this.storeWalletKeys(secretKey, signingPrivateKey, address);
       
-      progressCallback?.({ 
-        phase: 'registering_contracts', 
-        progress: 30, 
-        message: 'Registering contracts with PXE...',
-        timeEstimate: '1 minute'
-      });
+      this.updateProgress(progressCallback, 'registering_contracts', 30, 'Registering contracts with PXE...', '1 minute');
       
       // Register contract artifacts with PXE first
       await this.registerContracts();
       
-      progressCallback?.({ 
-        phase: 'preparing_deployment', 
-        progress: 40, 
-        message: 'Preparing account deployment...',
-        timeEstimate: '2 minutes'
-      });
+      this.updateProgress(progressCallback, 'preparing_deployment', 40, 'Preparing account deployment...', '2 minutes');
       
       // Determine fee payment method
       const feeOptions = await this.getFeeOptions();
       
-      progressCallback?.({ 
-        phase: 'deploying', 
-        progress: 50, 
-        message: 'Deploying account contract to Aztec testnet...',
-        timeEstimate: '3-5 minutes'
-      });
+      this.updateProgress(progressCallback, 'deploying', 50, 'Deploying account contract to Aztec testnet...', '3-5 minutes');
       
-      // REAL account deployment to testnet
+      // Enhanced deployment with timeout
       console.log('🚀 Deploying account contract to Aztec testnet...');
-      const deployTx = await this.account.deploy(feeOptions);
-      const txHash = deployTx.getTxHash().toString();
+      const deployTx = await Promise.race([
+        this.account.deploy(feeOptions),
+        this.createTimeoutPromise(60000, 'Account deployment initialization timeout')
+      ]);
       
+      const txHash = deployTx.getTxHash().toString();
       console.log('📤 Account deployment transaction sent:', txHash);
       
-      progressCallback?.({ 
-        phase: 'confirming', 
-        progress: 70, 
-        message: 'Waiting for blockchain confirmation...',
-        timeEstimate: '2-5 minutes',
-        txHash: txHash
-      });
+      this.updateProgress(progressCallback, 'confirming', 70, 'Waiting for blockchain confirmation...', '2-5 minutes', txHash);
       
       // Start background monitoring
       this.startTransactionMonitoring(txHash, 'account_deployment', progressCallback);
       
-      // Wait for REAL deployment confirmation
-      const deployReceipt = await deployTx.wait({
-        timeout: AZTEC_CONFIG.TESTNET_TIMEOUT,
-        interval: AZTEC_CONFIG.POLL_INTERVAL
-      });
+      // Wait for deployment confirmation with timeout
+      const deployReceipt = await Promise.race([
+        deployTx.wait({
+          timeout: AZTEC_CONFIG.DEPLOYMENT_TIMEOUT,
+          interval: AZTEC_CONFIG.POLL_INTERVAL
+        }),
+        this.createTimeoutPromise(AZTEC_CONFIG.DEPLOYMENT_TIMEOUT, 'Account deployment timeout')
+      ]);
       
       if (deployReceipt.status !== TxStatus.SUCCESS) {
         throw new Error(`Account deployment failed: ${deployReceipt.error || 'Transaction reverted'}`);
@@ -202,12 +228,7 @@ class RealAztecClient {
       // Register account with PXE for private state tracking
       await this.registerAccountWithPXE();
       
-      progressCallback?.({ 
-        phase: 'complete', 
-        progress: 100, 
-        message: 'Account ready for use!',
-        txHash: deployReceipt.txHash.toString()
-      });
+      this.updateProgress(progressCallback, 'complete', 100, 'Account ready for use!', null, deployReceipt.txHash.toString());
       
       return {
         success: true,
@@ -217,17 +238,12 @@ class RealAztecClient {
       
     } catch (error) {
       console.error('❌ Wallet creation failed:', error);
-      progressCallback?.({ 
-        phase: 'error', 
-        progress: 0, 
-        message: this.getErrorMessage(error),
-        error: error 
-      });
+      this.updateProgress(progressCallback, 'error', 0, this.getErrorMessage(error));
       throw new Error(`Wallet creation failed: ${this.getErrorMessage(error)}`);
     }
   }
 
-  // Restore existing wallet from stored keys
+  // Enhanced wallet restoration with timeout
   async restoreWallet(progressCallback) {
     if (!this.pxe) throw new Error('PXE not initialized');
     
@@ -238,11 +254,7 @@ class RealAztecClient {
       }
       
       console.log('🔄 Restoring wallet from secure storage...');
-      progressCallback?.({ 
-        phase: 'restoring', 
-        progress: 20, 
-        message: 'Restoring account from stored keys...'
-      });
+      this.updateProgress(progressCallback, 'restoring', 20, 'Restoring account from stored keys...');
       
       const { secretKey, signingPrivateKey, address } = storedKeys;
       this.account = getSchnorrAccount(this.pxe, secretKey, signingPrivateKey);
@@ -253,24 +265,20 @@ class RealAztecClient {
         throw new Error('Address mismatch during restoration');
       }
       
-      progressCallback?.({ 
-        phase: 'verifying', 
-        progress: 50, 
-        message: 'Verifying account deployment on testnet...'
-      });
+      this.updateProgress(progressCallback, 'verifying', 50, 'Verifying account deployment on testnet...');
       
-      // Check if account is deployed on-chain
-      const isDeployed = await this.pxe.isAccountDeployed(this.account.getAddress());
+      // Check if account is deployed on-chain with timeout
+      const isDeployed = await Promise.race([
+        this.pxe.isAccountDeployed(this.account.getAddress()),
+        this.createTimeoutPromise(10000, 'Account verification timeout')
+      ]);
+      
       if (!isDeployed) {
         console.log('⚠️ Account not deployed to testnet yet');
         return { success: false, error: 'Account not deployed' };
       }
       
-      progressCallback?.({ 
-        phase: 'loading', 
-        progress: 80, 
-        message: 'Loading wallet and contracts...'
-      });
+      this.updateProgress(progressCallback, 'loading', 80, 'Loading wallet and contracts...');
       
       this.wallet = await this.account.getWallet();
       
@@ -278,11 +286,7 @@ class RealAztecClient {
       await this.registerContracts();
       await this.registerAccountWithPXE();
       
-      progressCallback?.({ 
-        phase: 'complete', 
-        progress: 100, 
-        message: 'Wallet restored successfully!'
-      });
+      this.updateProgress(progressCallback, 'complete', 100, 'Wallet restored successfully!');
       
       console.log('✅ Wallet restored successfully from testnet');
       return {
@@ -292,33 +296,36 @@ class RealAztecClient {
       
     } catch (error) {
       console.error('❌ Wallet restoration failed:', error);
-      progressCallback?.({ 
-        phase: 'error', 
-        progress: 0, 
-        message: this.getErrorMessage(error)
-      });
+      this.updateProgress(progressCallback, 'error', 0, this.getErrorMessage(error));
       return { success: false, error: this.getErrorMessage(error) };
     }
   }
 
-  // Register contracts with PXE for proof generation
+  // Register contracts with enhanced error handling
   async registerContracts() {
     try {
       console.log('📜 Registering contract artifacts with PXE...');
       
-      // Register ProfileRegistry
-      await this.pxe.registerContract({
-        address: AztecAddress.fromString(AZTEC_CONFIG.CONTRACT_ADDRESSES.ProfileRegistry),
-        artifact: ProfileRegistryArtifact,
-        alias: 'ProfileRegistry'
-      });
+      const registrations = [
+        {
+          address: AztecAddress.fromString(AZTEC_CONFIG.CONTRACT_ADDRESSES.ProfileRegistry),
+          artifact: ProfileRegistryArtifact,
+          alias: 'ProfileRegistry'
+        },
+        {
+          address: AztecAddress.fromString(AZTEC_CONFIG.CONTRACT_ADDRESSES.PrivateSocials),
+          artifact: PrivateSocialArtifact,
+          alias: 'PrivateSocials'
+        }
+      ];
       
-      // Register PrivateSocials
-      await this.pxe.registerContract({
-        address: AztecAddress.fromString(AZTEC_CONFIG.CONTRACT_ADDRESSES.PrivateSocials),
-        artifact: PrivateSocialArtifact,
-        alias: 'PrivateSocials'
-      });
+      // Register contracts with timeout
+      for (const contract of registrations) {
+        await Promise.race([
+          this.pxe.registerContract(contract),
+          this.createTimeoutPromise(15000, `Contract ${contract.alias} registration timeout`)
+        ]);
+      }
       
       console.log('✅ Contract artifacts registered with PXE');
     } catch (error) {
@@ -327,7 +334,7 @@ class RealAztecClient {
     }
   }
 
-  // Register account with PXE for private state tracking
+  // Register account with PXE
   async registerAccountWithPXE() {
     try {
       console.log('📝 Registering account with PXE for private state...');
@@ -335,7 +342,10 @@ class RealAztecClient {
       const encryptionPrivateKey = this.account.getEncryptionPrivateKey();
       const completeAddress = this.account.getCompleteAddress();
       
-      await this.pxe.registerAccount(encryptionPrivateKey, completeAddress);
+      await Promise.race([
+        this.pxe.registerAccount(encryptionPrivateKey, completeAddress),
+        this.createTimeoutPromise(10000, 'Account registration timeout')
+      ]);
       
       console.log('✅ Account registered with PXE');
     } catch (error) {
@@ -344,7 +354,20 @@ class RealAztecClient {
     }
   }
 
-  // Load contract instances for interaction
+  // Enhanced progress update helper
+  updateProgress(callback, phase, progress, message, timeEstimate = null, txHash = null) {
+    if (callback) {
+      callback({
+        phase,
+        progress,
+        message,
+        timeEstimate,
+        txHash
+      });
+    }
+  }
+
+  // Load contract instances
   async loadContracts() {
     if (!this.wallet) throw new Error('Wallet not available');
     
@@ -382,22 +405,17 @@ class RealAztecClient {
     }
   }
 
-  // Create profile on REAL blockchain
+  // Enhanced profile creation with better progress tracking
   async createProfile(profileData, progressCallback) {
     try {
       const profileRegistry = this.contracts.get('ProfileRegistry');
       if (!profileRegistry) throw new Error('ProfileRegistry not loaded');
       
-      console.log('🎭 Creating REAL profile on Aztec testnet...', { 
+      console.log('🎭 Creating profile on Aztec testnet...', { 
         username: profileData.username 
       });
       
-      progressCallback?.({ 
-        phase: 'preparing', 
-        progress: 10, 
-        message: 'Preparing transaction data...',
-        timeEstimate: '30 seconds'
-      });
+      this.updateProgress(progressCallback, 'preparing', 10, 'Preparing transaction data...', '30 seconds');
       
       // Hash data using proper Aztec field arithmetic
       const usernameHash = this.hashStringToField(profileData.username);
@@ -416,41 +434,34 @@ class RealAztecClient {
       const metadataString = JSON.stringify(metadata);
       const tokenURIHash = this.hashStringToField(metadataString);
       
-      progressCallback?.({ 
-        phase: 'proving', 
-        progress: 30, 
-        message: 'Generating zero-knowledge proofs...',
-        timeEstimate: '2-5 minutes'
-      });
+      this.updateProgress(progressCallback, 'proving', 30, 'Generating zero-knowledge proofs...', '2-5 minutes');
       
       // Get fee payment options
       const feeOptions = await this.getFeeOptions();
       
-      // Send REAL transaction to Aztec testnet
+      // Send transaction to Aztec testnet with timeout
       console.log('📝 Sending profile creation transaction to testnet...');
-      const tx = await profileRegistry.methods
-        .create_profile(usernameHash, tokenURIHash)
-        .send(feeOptions);
+      const tx = await Promise.race([
+        profileRegistry.methods.create_profile(usernameHash, tokenURIHash).send(feeOptions),
+        this.createTimeoutPromise(60000, 'Transaction submission timeout')
+      ]);
       
       const txHash = tx.getTxHash().toString();
       console.log('📤 Transaction sent to testnet:', txHash);
       
-      progressCallback?.({ 
-        phase: 'mining', 
-        progress: 60, 
-        message: 'Waiting for blockchain confirmation...',
-        timeEstimate: '1-3 minutes',
-        txHash: txHash
-      });
+      this.updateProgress(progressCallback, 'mining', 60, 'Waiting for blockchain confirmation...', '1-3 minutes', txHash);
       
       // Start background monitoring
       this.startTransactionMonitoring(txHash, 'profile_creation', progressCallback);
       
-      // Wait for REAL confirmation
-      const receipt = await tx.wait({ 
-        timeout: AZTEC_CONFIG.TESTNET_TIMEOUT,
-        interval: AZTEC_CONFIG.POLL_INTERVAL
-      });
+      // Wait for confirmation with timeout
+      const receipt = await Promise.race([
+        tx.wait({ 
+          timeout: AZTEC_CONFIG.TRANSACTION_TIMEOUT,
+          interval: AZTEC_CONFIG.POLL_INTERVAL
+        }),
+        this.createTimeoutPromise(AZTEC_CONFIG.TRANSACTION_TIMEOUT, 'Transaction confirmation timeout')
+      ]);
       
       if (receipt.status !== TxStatus.SUCCESS) {
         throw new Error(`Profile creation failed: ${receipt.error || 'Transaction reverted'}`);
@@ -458,33 +469,231 @@ class RealAztecClient {
       
       console.log('✅ Profile created successfully on Aztec testnet!');
       
-      progressCallback?.({ 
-        phase: 'complete', 
-        progress: 100, 
-        message: 'Profile created successfully!',
-        txHash: receipt.txHash.toString()
-      });
+      this.updateProgress(progressCallback, 'complete', 100, 'Profile created successfully!', null, receipt.txHash.toString());
       
-      // Store metadata locally for UI (since it's hashed on-chain)
+      // Store metadata locally for UI
       this.storeProfileMetadata(this.wallet.getAddress().toString(), metadata);
       
       return {
         success: true,
         txHash: receipt.txHash.toString(),
-        profileId: await this.getProfileId(), // Get from contract
+        profileId: await this.getProfileId(),
         metadata
       };
       
     } catch (error) {
       console.error('❌ Profile creation failed:', error);
-      progressCallback?.({ 
-        phase: 'error', 
-        progress: 0, 
-        message: this.getErrorMessage(error),
-        error: error
-      });
+      this.updateProgress(progressCallback, 'error', 0, this.getErrorMessage(error));
       return { success: false, error: this.getErrorMessage(error) };
     }
+  }
+
+  // Enhanced transaction monitoring with better timeout handling
+  startTransactionMonitoring(txHash, operationType, progressCallback) {
+    const startTime = Date.now();
+    
+    console.log(`🔍 Starting background monitoring for ${operationType}: ${txHash}`);
+    
+    this.transactionMonitors.set(txHash, {
+      type: operationType,
+      startTime: startTime,
+      callback: progressCallback
+    });
+    
+    // Enhanced polling with exponential backoff
+    let pollCount = 0;
+    const maxPolls = Math.floor(AZTEC_CONFIG.TRANSACTION_TIMEOUT / AZTEC_CONFIG.POLL_INTERVAL);
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        pollCount++;
+        const elapsed = Date.now() - startTime;
+        
+        // Check timeout
+        if (elapsed > AZTEC_CONFIG.TRANSACTION_TIMEOUT || pollCount > maxPolls) {
+          clearInterval(pollInterval);
+          this.handleTransactionTimeout(txHash, operationType);
+          return;
+        }
+        
+        // Try to get transaction receipt
+        const receipt = await Promise.race([
+          this.pxe.getTxReceipt(txHash),
+          this.createTimeoutPromise(5000, 'Receipt fetch timeout')
+        ]);
+        
+        if (receipt && receipt.status !== TxStatus.PENDING) {
+          clearInterval(pollInterval);
+          this.handleTransactionComplete(txHash, receipt, operationType);
+        } else {
+          // Update progress with exponential patience
+          const progress = Math.min(60 + (elapsed / AZTEC_CONFIG.TRANSACTION_TIMEOUT) * 30, 95);
+          const timeRemaining = Math.max(0, AZTEC_CONFIG.TRANSACTION_TIMEOUT - elapsed);
+          const minutesRemaining = Math.ceil(timeRemaining / 60000);
+          
+          if (progressCallback) {
+            progressCallback({
+              phase: 'confirming',
+              progress: progress,
+              message: `Confirming on testnet... (~${minutesRemaining}m remaining)`,
+              txHash: txHash,
+              elapsed: elapsed
+            });
+          }
+        }
+      } catch (pollError) {
+        console.log(`Polling for transaction ${txHash}... (attempt ${pollCount})`);
+        
+        // If we're getting consistent errors, slow down polling
+        if (pollCount % 3 === 0) {
+          console.log('Slowing down polling due to errors...');
+          clearInterval(pollInterval);
+          // Restart with longer interval
+          setTimeout(() => {
+            this.startTransactionMonitoring(txHash, operationType, progressCallback);
+          }, AZTEC_CONFIG.POLL_INTERVAL * 2);
+        }
+      }
+    }, AZTEC_CONFIG.POLL_INTERVAL);
+  }
+
+  // Handle transaction completion
+  handleTransactionComplete(txHash, receipt, operationType) {
+    console.log(`✅ Transaction ${operationType} completed:`, txHash);
+    
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('aztecTransactionComplete', { 
+        detail: { 
+          txHash, 
+          status: receipt.status === TxStatus.SUCCESS ? 'success' : 'error',
+          operationType,
+          receipt 
+        }
+      }));
+    }
+    
+    this.transactionMonitors.delete(txHash);
+  }
+
+  // Handle transaction timeout
+  handleTransactionTimeout(txHash, operationType) {
+    console.warn(`⏰ Transaction ${operationType} monitoring timeout:`, txHash);
+    
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('aztecTransactionTimeout', {
+        detail: { txHash, operationType }
+      }));
+    }
+    
+    this.transactionMonitors.delete(txHash);
+  }
+
+  // Connection health check
+  async checkConnection() {
+    try {
+      if (!this.pxe || !this.isInitialized) {
+        return { healthy: false, reason: 'Not initialized' };
+      }
+      
+      // Quick health check with timeout
+      await Promise.race([
+        this.pxe.getNodeInfo(),
+        this.createTimeoutPromise(5000, 'Health check timeout')
+      ]);
+      
+      return { 
+        healthy: true, 
+        lastConnectionTime: this.lastConnectionTime,
+        uptime: Date.now() - this.lastConnectionTime
+      };
+      
+    } catch (error) {
+      return { 
+        healthy: false, 
+        reason: error.message,
+        lastError: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // Auto-reconnection logic
+  async attemptReconnection() {
+    console.log('🔄 Attempting to reconnect to Aztec Network...');
+    
+    try {
+      // Reset connection state
+      this.isInitialized = false;
+      this.pxe = null;
+      
+      // Reinitialize
+      await this.initialize();
+      
+      // If we had a wallet, try to restore it
+      if (this.getStoredWalletKeys()) {
+        const result = await this.restoreWallet();
+        if (result.success) {
+          await this.loadContracts();
+        }
+      }
+      
+      console.log('✅ Reconnection successful');
+      return { success: true };
+      
+    } catch (error) {
+      console.error('❌ Reconnection failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Enhanced error message handling with Aztec-specific patterns
+  getErrorMessage(error) {
+    const message = error?.message || error?.toString() || 'Unknown error';
+    
+    // Aztec-specific error patterns with user-friendly messages
+    if (message.includes('PXE_SERVICE_NOT_AVAILABLE') || message.includes('ECONNREFUSED')) {
+      return 'Aztec testnet is currently unavailable. Please try again later or switch to mock mode.';
+    }
+    if (message.includes('timeout') || message.includes('ETIMEDOUT')) {
+      return 'Connection timeout. Aztec testnet can be slow - please try again or use mock mode for testing.';
+    }
+    if (message.includes('INSUFFICIENT_FUNDS')) {
+      return 'Insufficient funds. Try using sponsored transactions or get testnet tokens.';
+    }
+    if (message.includes('ACCOUNT_NOT_DEPLOYED')) {
+      return 'Account not deployed. Please deploy your account first.';
+    }
+    if (message.includes('CONTRACT_NOT_FOUND')) {
+      return 'Contract not found. Please check contract addresses and network.';
+    }
+    if (message.includes('SIMULATION_FAILED')) {
+      return 'Transaction simulation failed. Please check your transaction parameters.';
+    }
+    if (message.includes('field_overflow') || message.includes('FIELD_OVERFLOW')) {
+      return 'Input value too large for Aztec field. Please use smaller values.';
+    }
+    if (message.includes('WebAssembly') || message.includes('wasm')) {
+      return 'Browser WebAssembly issue. Please update your browser or try in Chrome/Firefox.';
+    }
+    if (message.includes('Failed to fetch')) {
+      return 'Network error. Please check your internet connection and try again.';
+    }
+    
+    return message;
+  }
+
+  // Utility functions
+  hashStringToField(str) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(str);
+    
+    let hash = 0;
+    for (let i = 0; i < data.length; i++) {
+      hash = (hash << 5) - hash + data[i];
+      hash = hash & hash;
+    }
+    
+    const fieldValue = Math.abs(hash) % (2**254 - 1);
+    return Fr.fromString(fieldValue.toString());
   }
 
   // Check if user has profile
@@ -523,14 +732,13 @@ class RealAztecClient {
         .simulate();
         
       if (profileId.toString() === '0') {
-        return null; // No profile
+        return null;
       }
       
       const tokenURI = await profileRegistry.methods
         .get_token_uri(address)
         .simulate();
       
-      // Get stored metadata
       const metadata = this.getStoredProfileMetadata(address.toString());
       
       return {
@@ -576,7 +784,7 @@ class RealAztecClient {
       return available;
     } catch (error) {
       console.error('❌ Username availability check failed:', error);
-      return true; // Assume available on error
+      return true;
     }
   }
 
@@ -604,89 +812,10 @@ class RealAztecClient {
     }
   }
 
-  // Transaction monitoring with background processing
-  startTransactionMonitoring(txHash, operationType, progressCallback) {
-    const startTime = Date.now();
-    
-    console.log(`🔍 Starting background monitoring for ${operationType}: ${txHash}`);
-    
-    this.transactionMonitors.set(txHash, {
-      type: operationType,
-      startTime: startTime,
-      callback: progressCallback
-    });
-    
-    // Start polling
-    const pollInterval = setInterval(async () => {
-      try {
-        const elapsed = Date.now() - startTime;
-        
-        // Check timeout
-        if (elapsed > AZTEC_CONFIG.TESTNET_TIMEOUT) {
-          clearInterval(pollInterval);
-          this.handleTransactionTimeout(txHash, operationType);
-          return;
-        }
-        
-        // Try to get transaction receipt
-        const receipt = await this.pxe.getTxReceipt(txHash);
-        
-        if (receipt && receipt.status !== TxStatus.PENDING) {
-          clearInterval(pollInterval);
-          this.handleTransactionComplete(txHash, receipt, operationType);
-        } else {
-          // Update progress
-          const progress = Math.min(60 + (elapsed / AZTEC_CONFIG.TESTNET_TIMEOUT) * 30, 95);
-          progressCallback?.({
-            phase: 'confirming',
-            progress: progress,
-            message: `Confirming on testnet... (${Math.floor(elapsed / 1000)}s)`,
-            txHash: txHash
-          });
-        }
-      } catch (pollError) {
-        console.log(`Polling for transaction ${txHash}...`);
-      }
-    }, AZTEC_CONFIG.POLL_INTERVAL);
-  }
-
-  // Handle transaction completion
-  handleTransactionComplete(txHash, receipt, operationType) {
-    console.log(`✅ Transaction ${operationType} completed:`, txHash);
-    
-    // Emit custom event for UI
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('aztecTransactionComplete', { 
-        detail: { 
-          txHash, 
-          status: receipt.status === TxStatus.SUCCESS ? 'success' : 'error',
-          operationType,
-          receipt 
-        }
-      }));
-    }
-    
-    this.transactionMonitors.delete(txHash);
-  }
-
-  // Handle transaction timeout
-  handleTransactionTimeout(txHash, operationType) {
-    console.warn(`⏰ Transaction ${operationType} monitoring timeout:`, txHash);
-    
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('aztecTransactionTimeout', {
-        detail: { txHash, operationType }
-      }));
-    }
-    
-    this.transactionMonitors.delete(txHash);
-  }
-
-  // Get fee payment options (sponsored vs self-paid)
+  // Get fee payment options
   async getFeeOptions() {
     try {
-      if (this.sponsoredFPC && this.sponsoredFPC.address) {
-        // Use sponsored FPC for fee-less transactions
+      if (this.sponsoredFPC && this.sponsoredFPC.address && this.sponsoredFPC.isReady) {
         return {
           fee: {
             paymentMethod: 'fpc-sponsored',
@@ -694,57 +823,12 @@ class RealAztecClient {
           }
         };
       } else {
-        // Default fee payment
         return {};
       }
     } catch (error) {
       console.warn('⚠️ Fee options setup failed, using default:', error.message);
       return {};
     }
-  }
-
-  // Utility: Hash string to Aztec field element
-  hashStringToField(str) {
-    // Simple deterministic hash for field element
-    const encoder = new TextEncoder();
-    const data = encoder.encode(str);
-    
-    let hash = 0;
-    for (let i = 0; i < data.length; i++) {
-      hash = (hash << 5) - hash + data[i];
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    
-    // Ensure it fits in Aztec field
-    const fieldValue = Math.abs(hash) % (2**254 - 1);
-    return Fr.fromString(fieldValue.toString());
-  }
-
-  // Enhanced error message handling
-  getErrorMessage(error) {
-    const message = error?.message || error?.toString() || 'Unknown error';
-    
-    // Aztec-specific error patterns
-    if (message.includes('PXE_SERVICE_NOT_AVAILABLE')) {
-      return 'Aztec testnet is currently unavailable. Please try again later.';
-    }
-    if (message.includes('INSUFFICIENT_FUNDS')) {
-      return 'Insufficient funds. Try using sponsored transactions or testnet faucet.';
-    }
-    if (message.includes('ACCOUNT_NOT_DEPLOYED')) {
-      return 'Account not deployed. Please deploy your account first.';
-    }
-    if (message.includes('CONTRACT_NOT_FOUND')) {
-      return 'Contract not found. Please check contract addresses.';
-    }
-    if (message.includes('SIMULATION_FAILED')) {
-      return 'Transaction simulation failed. Check parameters.';
-    }
-    if (message.includes('timeout')) {
-      return 'Operation timeout. Aztec testnet can be slow - transaction may still be processing.';
-    }
-    
-    return message;
   }
 
   // Default social verifications
@@ -759,7 +843,7 @@ class RealAztecClient {
     };
   }
 
-  // Secure key storage
+  // Storage functions
   storeWalletKeys(secretKey, signingPrivateKey, address) {
     const walletData = {
       secretKey: secretKey.toString(),
@@ -774,7 +858,6 @@ class RealAztecClient {
     console.log('🔐 Wallet keys stored securely');
   }
 
-  // Retrieve stored keys
   getStoredWalletKeys() {
     try {
       const stored = localStorage.getItem('aztec_wallet_keys');
@@ -798,7 +881,6 @@ class RealAztecClient {
     }
   }
 
-  // Store profile metadata locally
   storeProfileMetadata(address, metadata) {
     const dataWithTimestamp = {
       ...metadata,
@@ -807,7 +889,6 @@ class RealAztecClient {
     localStorage.setItem(`aztec_profile_meta_${address}`, JSON.stringify(dataWithTimestamp));
   }
 
-  // Get stored profile metadata
   getStoredProfileMetadata(address) {
     try {
       const stored = localStorage.getItem(`aztec_profile_meta_${address}`);
@@ -827,7 +908,7 @@ class RealAztecClient {
     return this.wallet ? this.wallet.getAddress().toString() : null;
   }
 
-  // Cleanup
+  // Enhanced cleanup
   disconnect() {
     // Clear all monitors
     for (const [txHash] of this.transactionMonitors) {
@@ -843,11 +924,13 @@ class RealAztecClient {
     this.isInitialized = false;
     this.error = null;
     this.sponsoredFPC = null;
+    this.connectionAttempts = 0;
+    this.lastConnectionTime = null;
     
     console.log('🧹 Aztec client disconnected and cleaned up');
   }
 }
 
 // Export singleton instance
-export const aztecClient = new RealAztecClient();
+export const aztecClient = new OptimizedAztecClient();
 export default aztecClient;
