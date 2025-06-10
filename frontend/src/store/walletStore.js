@@ -1,4 +1,4 @@
-// src/store/walletStore.js - REAL AZTEC INTEGRATION
+// src/store/walletStore.js - UPDATED FOR REAL AZTEC INTEGRATION
 import { create } from 'zustand';
 import { aztecClient } from '../lib/aztecClient';
 
@@ -11,9 +11,9 @@ const useWalletStore = create((set, get) => ({
   isLoading: false,
   error: null,
   
-  // Profile state - IMPORTANT: hasProfile is BOOLEAN, not function
+  // Profile state - CRITICAL: hasProfile is BOOLEAN
   profile: null,
-  hasProfile: false, // ✅ BOOLEAN STATE
+  hasProfile: false, // ✅ BOOLEAN STATE (NOT FUNCTION!)
   socialVerifications: {
     twitter: false,
     discord: false,
@@ -23,13 +23,17 @@ const useWalletStore = create((set, get) => ({
     email: false
   },
   
-  // Points & level (mock data for now)
+  // Points & level (mock data for now - can be enhanced later)
   points: 0,
   level: 1,
 
   // Development mode toggle
   developmentMode: process.env.NODE_ENV === 'development',
   useMockData: localStorage.getItem('aztec_use_mock') === 'true',
+
+  // Background processing state
+  backgroundTasks: new Map(),
+  notifications: [],
 
   // Actions
   connectWallet: async (providerName = 'create') => {
@@ -44,19 +48,56 @@ const useWalletStore = create((set, get) => ({
         return get().connectMockWallet();
       }
       
-      // Initialize Aztec client
+      // Initialize real Aztec client
       await aztecClient.initialize();
       
       let walletResult;
       
       if (providerName === 'create') {
         // Try to restore existing wallet first
-        walletResult = await aztecClient.restoreWallet();
+        walletResult = await aztecClient.restoreWallet((progress) => {
+          // Progress callback for restoration
+          console.log('Restoration progress:', progress);
+        });
         
-        // If no wallet exists, create new one
+        // If no wallet exists, create new one with progress tracking
         if (!walletResult.success) {
           console.log('💡 No existing wallet, creating new one...');
-          walletResult = await aztecClient.createWallet();
+          
+          // Add background task for account creation
+          const taskId = Date.now().toString();
+          set(state => ({
+            backgroundTasks: new Map(state.backgroundTasks.set(taskId, {
+              type: 'account_creation',
+              status: 'running',
+              progress: 0,
+              message: 'Creating Aztec account...',
+              startTime: Date.now()
+            }))
+          }));
+          
+          walletResult = await aztecClient.createWallet((progress) => {
+            // Update background task progress
+            set(state => ({
+              backgroundTasks: new Map(state.backgroundTasks.set(taskId, {
+                ...state.backgroundTasks.get(taskId),
+                progress: progress.progress,
+                message: progress.message,
+                phase: progress.phase,
+                timeEstimate: progress.timeEstimate,
+                txHash: progress.txHash
+              }))
+            }));
+          });
+          
+          // Remove completed task
+          setTimeout(() => {
+            set(state => {
+              const newTasks = new Map(state.backgroundTasks);
+              newTasks.delete(taskId);
+              return { backgroundTasks: newTasks };
+            });
+          }, 5000);
         }
       } else {
         throw new Error(`Provider ${providerName} not implemented yet`);
@@ -66,7 +107,7 @@ const useWalletStore = create((set, get) => ({
         throw new Error(walletResult.error);
       }
 
-      // Load contracts
+      // Load contracts after wallet creation/restoration
       await aztecClient.loadContracts();
       
       // Check for existing profile
@@ -79,13 +120,14 @@ const useWalletStore = create((set, get) => ({
       
       if (hasExistingProfile) {
         profileData = await aztecClient.getProfile();
-        if (profileData) {
+        if (profileData && profileData.profileId) {
           socialVerifications = await aztecClient.getSocialVerifications(profileData.profileId);
         }
       }
       
-      // Mock points & level
-      const mockPoints = Math.floor(Math.random() * 1000) + 100;
+      // Generate mock points & level based on verifications
+      const verificationCount = Object.values(socialVerifications).filter(Boolean).length;
+      const mockPoints = Math.floor(Math.random() * 500) + (verificationCount * 100) + 100;
       const mockLevel = Math.floor(mockPoints / 200) + 1;
       
       set({
@@ -106,7 +148,15 @@ const useWalletStore = create((set, get) => ({
       localStorage.setItem('aztec_wallet_connected', 'true');
       localStorage.setItem('aztec_wallet_address', walletResult.address);
       
-      console.log('✅ Aztec wallet connected successfully!');
+      // Add success notification
+      get().addNotification({
+        type: 'success',
+        title: 'Aztec Wallet Connected',
+        message: 'Successfully connected to Aztec testnet!',
+        txHash: walletResult.txHash
+      });
+      
+      console.log('✅ Real Aztec wallet connected successfully!');
       return { success: true, address: walletResult.address };
       
     } catch (error) {
@@ -126,6 +176,13 @@ const useWalletStore = create((set, get) => ({
         error: error.message,
         isConnected: false
       });
+      
+      get().addNotification({
+        type: 'error',
+        title: 'Connection Failed',
+        message: error.message
+      });
+      
       return { success: false, error: error.message };
     }
   },
@@ -135,8 +192,8 @@ const useWalletStore = create((set, get) => ({
     try {
       console.log('🎭 Using mock wallet for development...');
       
-      // Simulate delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Simulate connection delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       const mockAddress = '0x1234567890abcdef1234567890abcdef12345678';
       const mockWallet = { address: mockAddress };
@@ -183,6 +240,12 @@ const useWalletStore = create((set, get) => ({
       localStorage.setItem('aztec_wallet_connected', 'true');
       localStorage.setItem('aztec_wallet_address', mockAddress);
       
+      get().addNotification({
+        type: 'warning',
+        title: 'Mock Wallet Connected',
+        message: 'Connected in development mode with mock data.'
+      });
+      
       console.log('✅ Mock wallet connected!');
       return { success: true, address: mockAddress };
       
@@ -198,7 +261,7 @@ const useWalletStore = create((set, get) => ({
   },
 
   disconnectWallet: () => {
-    // Cleanup Aztec client
+    // Cleanup real Aztec client
     if (aztecClient.isConnected()) {
       aztecClient.disconnect();
     }
@@ -217,12 +280,19 @@ const useWalletStore = create((set, get) => ({
       points: 0,
       level: 1,
       isLoading: false,
-      error: null
+      error: null,
+      backgroundTasks: new Map()
     });
     
     // Clear localStorage
     localStorage.removeItem('aztec_wallet_connected');
     localStorage.removeItem('aztec_wallet_address');
+    
+    get().addNotification({
+      type: 'info',
+      title: 'Wallet Disconnected',
+      message: 'Successfully disconnected from Aztec wallet.'
+    });
     
     console.log('👋 Wallet disconnected');
     return { success: true };
@@ -235,9 +305,38 @@ const useWalletStore = create((set, get) => ({
       const { useMockData } = get();
       
       if (useMockData) {
-        // Mock profile creation
+        // Mock profile creation with progress simulation
         console.log('🎭 Creating mock profile...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const taskId = Date.now().toString();
+        set(state => ({
+          backgroundTasks: new Map(state.backgroundTasks.set(taskId, {
+            type: 'profile_creation',
+            status: 'running',
+            progress: 0,
+            message: 'Creating mock profile...',
+            startTime: Date.now()
+          }))
+        }));
+        
+        // Simulate progress steps
+        const steps = [
+          { progress: 20, message: 'Preparing profile data...' },
+          { progress: 50, message: 'Generating mock transaction...' },
+          { progress: 80, message: 'Simulating blockchain confirmation...' },
+          { progress: 100, message: 'Mock profile created!' }
+        ];
+        
+        for (const step of steps) {
+          await new Promise(resolve => setTimeout(resolve, 800));
+          set(state => ({
+            backgroundTasks: new Map(state.backgroundTasks.set(taskId, {
+              ...state.backgroundTasks.get(taskId),
+              progress: step.progress,
+              message: step.message
+            }))
+          }));
+        }
         
         const mockProfile = {
           profileId: '1',
@@ -254,13 +353,53 @@ const useWalletStore = create((set, get) => ({
         
         localStorage.setItem(`aztlan_profile_${get().address}`, JSON.stringify(profileData));
         
+        // Remove completed task
+        setTimeout(() => {
+          set(state => {
+            const newTasks = new Map(state.backgroundTasks);
+            newTasks.delete(taskId);
+            return { backgroundTasks: newTasks };
+          });
+        }, 3000);
+        
+        get().addNotification({
+          type: 'success',
+          title: 'Mock Profile Created',
+          message: 'Profile created successfully in development mode!',
+          txHash: 'mock-tx-hash-' + Date.now()
+        });
+        
         console.log('✅ Mock profile created!');
         return { success: true, txHash: 'mock-tx-hash' };
       }
       
       // Real Aztec profile creation
       console.log('🎭 Creating real Aztec profile...');
-      const result = await aztecClient.createProfile(profileData);
+      
+      const taskId = Date.now().toString();
+      set(state => ({
+        backgroundTasks: new Map(state.backgroundTasks.set(taskId, {
+          type: 'profile_creation',
+          status: 'running',
+          progress: 0,
+          message: 'Creating Aztec profile...',
+          startTime: Date.now()
+        }))
+      }));
+      
+      const result = await aztecClient.createProfile(profileData, (progress) => {
+        // Update background task progress
+        set(state => ({
+          backgroundTasks: new Map(state.backgroundTasks.set(taskId, {
+            ...state.backgroundTasks.get(taskId),
+            progress: progress.progress,
+            message: progress.message,
+            phase: progress.phase,
+            timeEstimate: progress.timeEstimate,
+            txHash: progress.txHash
+          }))
+        }));
+      });
       
       if (result.success) {
         // Update state with new profile
@@ -272,6 +411,22 @@ const useWalletStore = create((set, get) => ({
           isLoading: false
         });
         
+        // Remove completed task
+        setTimeout(() => {
+          set(state => {
+            const newTasks = new Map(state.backgroundTasks);
+            newTasks.delete(taskId);
+            return { backgroundTasks: newTasks };
+          });
+        }, 5000);
+        
+        get().addNotification({
+          type: 'success',
+          title: 'Profile Created',
+          message: 'Profile successfully created on Aztec testnet!',
+          txHash: result.txHash
+        });
+        
         console.log('✅ Real Aztec profile created!');
         return { success: true, txHash: result.txHash };
       } else {
@@ -281,6 +436,13 @@ const useWalletStore = create((set, get) => ({
     } catch (error) {
       console.error('❌ Profile creation failed:', error);
       set({ error: error.message, isLoading: false });
+      
+      get().addNotification({
+        type: 'error',
+        title: 'Profile Creation Failed',
+        message: error.message
+      });
+      
       return { success: false, error: error.message };
     }
   },
@@ -290,9 +452,10 @@ const useWalletStore = create((set, get) => ({
       const { useMockData } = get();
       
       if (useMockData) {
-        // Mock username check
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return username.length > 3; // Simple mock rule
+        // Mock username check with delay
+        await new Promise(resolve => setTimeout(resolve, 800));
+        // Simple mock rule: available if length > 3 and doesn't contain "admin"
+        return username.length > 3 && !username.toLowerCase().includes('admin');
       }
       
       // Real Aztec username check
@@ -300,6 +463,11 @@ const useWalletStore = create((set, get) => ({
       
     } catch (error) {
       console.error('❌ Username check failed:', error);
+      get().addNotification({
+        type: 'error',
+        title: 'Username Check Failed',
+        message: error.message
+      });
       throw error;
     }
   },
@@ -338,7 +506,11 @@ const useWalletStore = create((set, get) => ({
       
       if (hasExistingProfile) {
         const profileData = await aztecClient.getProfile();
-        const socialVerifications = await aztecClient.getSocialVerifications(profileData.profileId);
+        let socialVerifications = get().socialVerifications;
+        
+        if (profileData && profileData.profileId) {
+          socialVerifications = await aztecClient.getSocialVerifications(profileData.profileId);
+        }
         
         set({
           profile: profileData,
@@ -355,6 +527,13 @@ const useWalletStore = create((set, get) => ({
     } catch (error) {
       console.error('❌ Profile loading failed:', error);
       set({ error: error.message });
+      
+      get().addNotification({
+        type: 'error',
+        title: 'Profile Loading Failed',
+        message: error.message
+      });
+      
       throw error;
     }
   },
@@ -367,6 +546,34 @@ const useWalletStore = create((set, get) => ({
 
   clearError: () => set({ error: null }),
 
+  // Notification system
+  addNotification: (notification) => {
+    const id = Date.now().toString();
+    const newNotification = {
+      id,
+      timestamp: Date.now(),
+      persistent: false,
+      ...notification
+    };
+    
+    set(state => ({
+      notifications: [...state.notifications, newNotification]
+    }));
+    
+    // Auto-remove after 5 seconds (unless persistent)
+    if (!newNotification.persistent) {
+      setTimeout(() => {
+        get().removeNotification(id);
+      }, 5000);
+    }
+  },
+
+  removeNotification: (id) => {
+    set(state => ({
+      notifications: state.notifications.filter(n => n.id !== id)
+    }));
+  },
+
   // Toggle development mode
   toggleMockMode: () => {
     const newMockMode = !get().useMockData;
@@ -377,6 +584,12 @@ const useWalletStore = create((set, get) => ({
     get().disconnectWallet();
     
     console.log(`🔄 Switched to ${newMockMode ? 'mock' : 'real'} mode`);
+    
+    get().addNotification({
+      type: 'info',
+      title: 'Mode Switched',
+      message: `Switched to ${newMockMode ? 'mock' : 'real'} mode. Please reconnect your wallet.`
+    });
   },
 
   // Check for stored wallet on app load
@@ -387,10 +600,12 @@ const useWalletStore = create((set, get) => ({
       const useMockMode = localStorage.getItem('aztec_use_mock') === 'true';
       
       if (isConnected && storedAddress) {
-        set({ useMockData: useMockMode });
+        set({ useMockData: useMockMode, isLoading: true });
         
         if (useMockMode) {
           // Restore mock wallet
+          console.log('🔄 Restoring mock wallet from storage...');
+          
           const storedProfile = localStorage.getItem(`aztlan_profile_${storedAddress}`);
           const hasExistingProfile = !!storedProfile;
           let profileData = null;
@@ -417,13 +632,16 @@ const useWalletStore = create((set, get) => ({
             profile: profileData,
             hasProfile: hasExistingProfile, // ✅ BOOLEAN
             points: 500,
-            level: 3
+            level: 3,
+            isLoading: false
           });
           
           console.log('✅ Mock wallet restored from storage');
         } else {
           // Try to restore real Aztec wallet
           try {
+            console.log('🔄 Restoring real Aztec wallet from storage...');
+            
             await aztecClient.initialize();
             const walletResult = await aztecClient.restoreWallet();
             
@@ -439,7 +657,7 @@ const useWalletStore = create((set, get) => ({
               
               if (hasExistingProfile) {
                 profileData = await aztecClient.getProfile();
-                if (profileData) {
+                if (profileData && profileData.profileId) {
                   socialVerifications = await aztecClient.getSocialVerifications(profileData.profileId);
                 }
               }
@@ -453,28 +671,44 @@ const useWalletStore = create((set, get) => ({
                 hasProfile: hasExistingProfile, // ✅ BOOLEAN
                 socialVerifications,
                 points: 500,
-                level: 3
+                level: 3,
+                isLoading: false
               });
               
               console.log('✅ Real Aztec wallet restored from storage');
             } else {
-              // Fallback to mock mode
-              console.log('🔄 Real wallet restoration failed, switching to mock mode');
-              set({ useMockData: true });
-              localStorage.setItem('aztec_use_mock', 'true');
-              get().checkStoredWallet(); // Recursive call with mock mode
+              throw new Error(walletResult.error);
             }
           } catch (error) {
-            console.log('❌ Aztec wallet restoration failed, using mock mode');
-            set({ useMockData: true });
+            console.log('❌ Real wallet restoration failed, switching to mock mode');
+            set({ useMockData: true, isLoading: false });
             localStorage.setItem('aztec_use_mock', 'true');
-            get().checkStoredWallet(); // Recursive call with mock mode
+            // Retry with mock mode
+            setTimeout(() => get().checkStoredWallet(), 1000);
           }
         }
       }
     } catch (error) {
       console.log('❌ Wallet restoration failed:', error);
+      set({ isLoading: false });
     }
+  },
+
+  // Background task management
+  getBackgroundTasks: () => {
+    return Array.from(get().backgroundTasks.values());
+  },
+
+  clearCompletedTasks: () => {
+    set(state => {
+      const newTasks = new Map();
+      for (const [id, task] of state.backgroundTasks) {
+        if (task.status === 'running') {
+          newTasks.set(id, task);
+        }
+      }
+      return { backgroundTasks: newTasks };
+    });
   }
 }));
 
